@@ -293,7 +293,7 @@ function initMsal() {
   }
   // Init MSAL
   msalApp = new Msal.UserAgentApplication({
-    auth: { clientId: CLIENT_ID, authority: AUTHORITY, redirectUri: REDIRECT_URI },
+  auth: { clientId: CLIENT_ID, authority: AUTHORITY, redirectUri: REDIRECT_URI },
     cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: true }
   });
 
