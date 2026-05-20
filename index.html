@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Planner Task Manager</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/msal.js/1.4.18/msal.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f3; color: #1a1a1a; min-height: 100vh; }
+
+  #auth-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; gap: 24px; padding: 2rem; background: #f5f5f3; }
+  .auth-card { background: #fff; border: 1px solid rgba(0,0,0,.1); border-radius: 16px; padding: 2.5rem 3rem; max-width: 420px; width: 100%; text-align: center; box-shadow: 0 4px 24px rgba(0,0,0,.06); }
+  .auth-logo { margin-bottom: 1.25rem; }
+  .auth-title { font-size: 22px; font-weight: 600; margin-bottom: 8px; }
+  .auth-sub { font-size: 14px; color: #666; margin-bottom: 2rem; line-height: 1.6; }
+  .btn-signin { width: 100%; padding: 12px; background: #0f6e56; color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: background .15s; }
+  .btn-signin:hover { background: #085041; }
+  .btn-signin:disabled { background: #9fcfc4; cursor: not-allowed; }
+  .error-msg { margin-top: 1rem; padding: 10px 14px; background: #fcebeb; color: #a32d2d; border-radius: 8px; font-size: 13px; display: none; }
+
+  #app { display: none; min-height: 100vh; }
+
+  .topbar { background: #fff; border-bottom: 1px solid rgba(0,0,0,.08); padding: 0 1.5rem; height: 54px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .topbar-left { display: flex; align-items: center; gap: 12px; }
+  .app-icon { width: 30px; height: 30px; background: #0f6e56; border-radius: 7px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .app-icon svg { width: 17px; height: 17px; fill: none; stroke: #fff; stroke-width: 2.2; stroke-linecap: round; }
+  .app-name { font-size: 15px; font-weight: 600; }
+  .plan-select { padding: 5px 10px; border: 1px solid rgba(0,0,0,.15); border-radius: 6px; font-size: 13px; background: #f5f5f3; color: #1a1a1a; cursor: pointer; max-width: 220px; }
+  .topbar-right { display: flex; align-items: center; gap: 8px; }
+  .user-badge { font-size: 13px; color: #666; margin-right: 4px; }
+  .btn-sm { padding: 6px 12px; border: 1px solid rgba(0,0,0,.15); border-radius: 6px; font-size: 13px; background: transparent; color: #1a1a1a; cursor: pointer; transition: background .12s; white-space: nowrap; }
+  .btn-sm:hover { background: #f0f0ee; }
+  .btn-sm.primary { background: #0f6e56; color: #fff; border-color: #0f6e56; }
+  .btn-sm.primary:hover { background: #085041; }
+
+  .toolbar { padding: 10px 1.5rem; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid rgba(0,0,0,.08); background: #fff; }
+  .search-wrap { position: relative; flex: 1; min-width: 160px; max-width: 300px; }
+  .search-wrap input { width: 100%; padding: 6px 10px 6px 32px; border: 1px solid rgba(0,0,0,.15); border-radius: 6px; font-size: 13px; background: #f5f5f3; color: #1a1a1a; }
+  .search-wrap input:focus { outline: none; border-color: #1d9e75; }
+  .search-icon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; opacity: .4; pointer-events: none; }
+  .filter-btn { padding: 5px 12px; border: 1px solid rgba(0,0,0,.12); border-radius: 20px; font-size: 12px; background: transparent; color: #666; cursor: pointer; transition: all .12s; }
+  .filter-btn:hover { background: #e1f5ee; color: #0f6e56; border-color: #5dcaa5; }
+  .filter-btn.active { background: #e1f5ee; color: #0f6e56; border-color: #5dcaa5; font-weight: 500; }
+  .view-toggle { display: flex; border: 1px solid rgba(0,0,0,.12); border-radius: 6px; overflow: hidden; margin-left: auto; }
+  .view-btn { padding: 5px 12px; background: transparent; border: none; cursor: pointer; font-size: 12px; color: #666; transition: background .12s; }
+  .view-btn.active { background: #f0f0ee; color: #1a1a1a; font-weight: 500; }
+
+  .stats-bar { display: flex; gap: 10px; padding: 12px 1.5rem; background: #f5f5f3; flex-wrap: wrap; }
+  .stat-card { background: #fff; border-radius: 10px; padding: 10px 16px; flex: 1; min-width: 90px; border: 1px solid rgba(0,0,0,.07); }
+  .stat-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 3px; }
+  .stat-num { font-size: 22px; font-weight: 600; }
+  .stat-num.green { color: #0f6e56; }
+  .stat-num.amber { color: #ba7517; }
+  .stat-num.red { color: #a32d2d; }
+
+  .progress-wrap { padding: 0 1.5rem 12px; background: #f5f5f3; }
+  .progress-label { font-size: 12px; color: #888; margin-bottom: 5px; }
+  .progress-bar { height: 6px; background: rgba(0,0,0,.08); border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; background: #0f6e56; border-radius: 3px; transition: width .5s ease; }
+
+  .content { padding: 1.5rem; }
+  .board { display: flex; gap: 1rem; align-items: flex-start; overflow-x: auto; padding-bottom: 1rem; }
+  .bucket { background: #fff; border-radius: 12px; border: 1px solid rgba(0,0,0,.08); min-width: 250px; width: 250px; flex-shrink: 0; }
+  .bucket-header { padding: 12px 14px 8px; display: flex; align-items: center; justify-content: space-between; }
+  .bucket-title { font-size: 13px; font-weight: 600; }
+  .bucket-count { font-size: 11px; color: #888; background: #f5f5f3; border-radius: 10px; padding: 1px 8px; }
+  .bucket-tasks { padding: 0 8px 4px; display: flex; flex-direction: column; gap: 6px; }
+  .task-card { background: #fafaf8; border: 1px solid rgba(0,0,0,.07); border-radius: 8px; padding: 10px 12px; cursor: pointer; transition: border-color .12s, transform .1s; }
+  .task-card:hover { border-color: rgba(0,0,0,.18); transform: translateY(-1px); }
+  .task-card.done { opacity: .5; }
+  .task-title { font-size: 13px; font-weight: 500; margin-bottom: 6px; line-height: 1.4; }
+  .task-title.strikethrough { text-decoration: line-through; }
+  .task-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .priority-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .p-urgent { background: #a32d2d; }
+  .p-important { background: #ba7517; }
+  .p-medium { background: #185fa5; }
+  .p-low { background: #3b6d11; }
+  .p-none { background: #ccc; }
+  .due-badge { font-size: 11px; color: #888; }
+  .due-badge.overdue { color: #a32d2d; font-weight: 600; }
+  .assignee-chip { font-size: 10px; color: #0f6e56; background: #e1f5ee; border-radius: 10px; padding: 1px 7px; margin-left: auto; }
+  .add-task-btn { margin: 4px 8px 10px; padding: 7px; border: 1px dashed rgba(0,0,0,.15); border-radius: 6px; background: transparent; color: #888; font-size: 12px; cursor: pointer; width: calc(100% - 16px); transition: all .12s; }
+  .add-task-btn:hover { background: #f5f5f3; border-style: solid; color: #0f6e56; }
+
+  .list-view { display: flex; flex-direction: column; gap: 5px; }
+  .list-task { background: #fff; border: 1px solid rgba(0,0,0,.08); border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: border-color .12s; }
+  .list-task:hover { border-color: rgba(0,0,0,.2); }
+  .list-task.done { opacity: .5; }
+  .check-circle { width: 19px; height: 19px; border-radius: 50%; border: 1.5px solid rgba(0,0,0,.2); flex-shrink: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .15s; }
+  .check-circle:hover { border-color: #0f6e56; }
+  .check-circle.checked { background: #0f6e56; border-color: #0f6e56; }
+  .check-circle.checked::after { content: ''; width: 8px; height: 5px; border-left: 2px solid #fff; border-bottom: 2px solid #fff; transform: rotate(-45deg) translate(1px, -1px); display: block; }
+  .list-title { flex: 1; font-size: 13px; font-weight: 500; }
+  .list-title.strikethrough { text-decoration: line-through; }
+  .list-bucket-tag { font-size: 11px; color: #888; background: #f5f5f3; border-radius: 4px; padding: 2px 8px; white-space: nowrap; }
+  .list-due { font-size: 12px; color: #888; white-space: nowrap; }
+  .list-due.overdue { color: #a32d2d; font-weight: 600; }
+
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 200; align-items: center; justify-content: center; padding: 1rem; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: #fff; border-radius: 14px; padding: 1.75rem; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 40px rgba(0,0,0,.15); }
+  .modal-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.25rem; }
+  .modal-title { font-size: 17px; font-weight: 600; flex: 1; padding-right: 1rem; }
+  .close-btn { background: none; border: none; font-size: 18px; cursor: pointer; color: #888; padding: 0 4px; line-height: 1; }
+  .close-btn:hover { color: #1a1a1a; }
+  .form-group { margin-bottom: 14px; }
+  .form-label { display: block; font-size: 11px; font-weight: 600; color: #888; margin-bottom: 5px; text-transform: uppercase; letter-spacing: .05em; }
+  .form-input { width: 100%; padding: 8px 10px; border: 1px solid rgba(0,0,0,.15); border-radius: 7px; font-size: 13px; background: #fafaf8; color: #1a1a1a; font-family: inherit; }
+  .form-input:focus { outline: none; border-color: #1d9e75; background: #fff; }
+  select.form-input { cursor: pointer; }
+  textarea.form-input { resize: vertical; min-height: 72px; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(0,0,0,.07); }
+
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+  .detail-field .detail-label { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px; }
+  .detail-field .detail-val { font-size: 14px; }
+  .status-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+  .s-notStarted { background: #f1efe8; color: #5f5e5a; }
+  .s-inProgress { background: #e6f1fb; color: #185fa5; }
+  .s-completed { background: #e1f5ee; color: #0f6e56; }
+  .detail-notes { font-size: 13px; color: #555; line-height: 1.7; padding: 10px 12px; background: #fafaf8; border-radius: 7px; border: 1px solid rgba(0,0,0,.07); }
+
+  .loading { display: flex; align-items: center; justify-content: center; padding: 4rem; gap: 12px; color: #888; font-size: 14px; }
+  .spinner { width: 22px; height: 22px; border: 2px solid rgba(0,0,0,.1); border-top-color: #0f6e56; border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .empty-state { text-align: center; padding: 4rem 1rem; color: #aaa; font-size: 14px; }
+  .empty-state p { margin-top: 8px; font-size: 13px; }
+
+  @media (max-width: 640px) {
+    .topbar { padding: 0 1rem; }
+    .app-name { display: none; }
+    .user-badge { display: none; }
+    .content { padding: 1rem; }
+    .board { flex-direction: column; }
+    .bucket { width: 100%; min-width: unset; }
+    .stats-bar { padding: 10px 1rem; }
+    .two-col { grid-template-columns: 1fr; }
+    .detail-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="52" height="52" rx="13" fill="#0f6e56"/>
+        <path d="M14 17h24M14 26h18M14 35h21" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="39" cy="35" r="6" fill="#5dcaa5"/>
+        <path d="M36.5 35l2 2 3.5-3.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="auth-title">PlannerBot</div>
+    <div class="auth-sub">Sign in with your Microsoft account to view and manage your team's Planner tasks.</div>
+    <button class="btn-signin" id="signin-btn" onclick="signIn()">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <rect x="1" y="1" width="7.5" height="7.5" fill="white" fill-opacity="0.95"/>
+        <rect x="9.5" y="1" width="7.5" height="7.5" fill="white" fill-opacity="0.7"/>
+        <rect x="1" y="9.5" width="7.5" height="7.5" fill="white" fill-opacity="0.7"/>
+        <rect x="9.5" y="9.5" width="7.5" height="7.5" fill="white" fill-opacity="0.95"/>
+      </svg>
+      Sign in with Microsoft
+    </button>
+    <div class="error-msg" id="error-msg"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="app-icon">
+        <svg viewBox="0 0 17 17"><path d="M2 4h13M2 8.5h9M2 13h11"/></svg>
+      </div>
+      <span class="app-name">PlannerBot</span>
+      <select class="plan-select" id="plan-select" onchange="onPlanChange()"></select>
+    </div>
+    <div class="topbar-right">
+      <span class="user-badge" id="user-name"></span>
+      <button class="btn-sm" onclick="loadPlanData()">↻ Refresh</button>
+      <button class="btn-sm primary" onclick="openCreateModal(null)">+ New task</button>
+      <button class="btn-sm" onclick="signOut()" style="color:#a32d2d">Sign out</button>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg class="search-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4"/><path d="m10.5 10.5 3 3"/></svg>
+      <input type="text" id="search-input" placeholder="Search tasks…" oninput="renderTasks()" />
+    </div>
+    <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+    <button class="filter-btn" onclick="setFilter('notStarted',this)">Not started</button>
+    <button class="filter-btn" onclick="setFilter('inProgress',this)">In progress</button>
+    <button class="filter-btn" onclick="setFilter('completed',this)">Completed</button>
+    <button class="filter-btn" onclick="setFilter('overdue',this)">Overdue</button>
+    <div class="view-toggle">
+      <button class="view-btn active" id="btn-board" onclick="setView('board')">⊞ Board</button>
+      <button class="view-btn" id="btn-list" onclick="setView('list')">☰ List</button>
+    </div>
+  </div>
+
+  <div class="stats-bar" id="stats-bar"></div>
+  <div class="progress-wrap" id="progress-wrap" style="display:none">
+    <div class="progress-label" id="progress-label"></div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+  </div>
+
+  <div class="content" id="content">
+    <div class="loading"><div class="spinner"></div> Loading tasks…</div>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="modal-overlay" id="detail-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="detail-title"></div>
+      <button class="close-btn" onclick="closeModal('detail-modal')">✕</button>
+    </div>
+    <div id="detail-body"></div>
+    <div class="modal-footer">
+      <button class="btn-sm" onclick="closeModal('detail-modal')">Close</button>
+      <button class="btn-sm" id="detail-edit-btn" onclick="openEditFromDetail()">Edit</button>
+      <button class="btn-sm primary" id="detail-toggle-btn" onclick="toggleTaskDone()"></button>
+    </div>
+  </div>
+</div>
+
+<!-- CREATE / EDIT MODAL -->
+<div class="modal-overlay" id="create-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="create-modal-title">New task</div>
+      <button class="close-btn" onclick="closeModal('create-modal')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Title *</label>
+      <input type="text" class="form-input" id="new-title" placeholder="What needs to be done?" />
+    </div>
+    <div class="two-col">
+      <div class="form-group">
+        <label class="form-label">Bucket</label>
+        <select class="form-input" id="new-bucket"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Priority</label>
+        <select class="form-input" id="new-priority">
+          <option value="0">🔴 Urgent</option>
+          <option value="2">🟠 Important</option>
+          <option value="5" selected>🔵 Medium</option>
+          <option value="9">🟢 Low</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Due date</label>
+      <input type="date" class="form-input" id="new-due" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-input" id="new-notes" placeholder="Optional notes or description…"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sm" onclick="closeModal('create-modal')">Cancel</button>
+      <button class="btn-sm primary" id="create-btn" onclick="submitTask()">Create task</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+const CLIENT_ID   = '5ef81d14-7831-4351-8bdd-1ce20332c76a';
+const REDIRECT_URI = 'https://lorenzoambrosini-sectra.github.io/PlannerBot';
+const SCOPES      = ['Tasks.ReadWrite', 'Group.Read.All', 'User.Read'];
+const GRAPH       = 'https://graph.microsoft.com/v1.0';
+// ─────────────────────────────────────────────────────────────────────────────
+
+let msalApp, accessToken, plans = [], buckets = [], tasks = [];
+let currentPlan = null, currentFilter = 'all', currentView = 'board';
+let detailTaskId = null, editingTaskId = null;
+
+// Init MSAL
+msalApp = new Msal.UserAgentApplication({
+  auth: { clientId: CLIENT_ID, redirectUri: REDIRECT_URI },
+  cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: true }
+});
+
+// Handle redirect callback on page load
+msalApp.handleRedirectCallback((err, resp) => {
+  if (err) { showError(err.errorMessage || err.message); return; }
+  if (resp && resp.accessToken) { accessToken = resp.accessToken; initApp(); }
+});
+
+// Try silent login on load
+window.addEventListener('load', () => {
+  msalApp.acquireTokenSilent({ scopes: SCOPES, redirectUri: REDIRECT_URI })
+    .then(r => { accessToken = r.accessToken; initApp(); })
+    .catch(() => { /* not logged in yet, show auth screen */ });
+});
+
+function signIn() {
+  document.getElementById('signin-btn').disabled = true;
+  document.getElementById('signin-btn').textContent = 'Redirecting…';
+  msalApp.loginRedirect({ scopes: SCOPES });
+}
+
+function signOut() {
+  sessionStorage.clear();
+  msalApp.logout();
+}
+
+async function initApp() {
+  const me = await callGraph('/me');
+  document.getElementById('user-name').textContent = me.displayName || me.mail;
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  await loadPlans();
+}
+
+async function callGraph(path, method = 'GET', body = null) {
+  const opts = {
+    method,
+    headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' }
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(GRAPH + path, opts);
+  if (!r.ok) throw new Error((await r.text()));
+  if (r.status === 204) return {};
+  return r.json();
+}
+
+async function loadPlans() {
+  showLoading();
+  try {
+    const data = await callGraph('/me/planner/plans');
+    plans = data.value || [];
+    const sel = document.getElementById('plan-select');
+    sel.innerHTML = '';
+    if (!plans.length) {
+      document.getElementById('content').innerHTML = '<div class="empty-state">No Planner plans found in your account.</div>';
+      return;
+    }
+    plans.forEach(p => {
+      const o = document.createElement('option');
+      o.value = p.id; o.textContent = p.title; sel.appendChild(o);
+    });
+    currentPlan = plans[0];
+    await loadPlanData();
+  } catch(e) { showErr(e); }
+}
+
+async function onPlanChange() {
+  currentPlan = plans.find(p => p.id === document.getElementById('plan-select').value);
+  await loadPlanData();
+}
+
+async function loadPlanData() {
+  showLoading();
+  try {
+    const [bd, td] = await Promise.all([
+      callGraph(`/planner/plans/${currentPlan.id}/buckets`),
+      callGraph(`/planner/plans/${currentPlan.id}/tasks`)
+    ]);
+    buckets = (bd.value || []).sort((a,b) => (a.orderHint||'').localeCompare(b.orderHint||''));
+    tasks   = td.value || [];
+    renderStats();
+    renderTasks();
+  } catch(e) { showErr(e); }
+}
+
+function showLoading() {
+  document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div> Loading…</div>';
+}
+
+function showErr(e) {
+  document.getElementById('content').innerHTML = `<div class="empty-state" style="color:#a32d2d">⚠️ ${e.message}</div>`;
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-msg');
+  el.style.display = 'block'; el.textContent = msg;
+  document.getElementById('signin-btn').disabled = false;
+  document.getElementById('signin-btn').innerHTML = `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1" y="1" width="7.5" height="7.5" fill="white" fill-opacity="0.95"/><rect x="9.5" y="1" width="7.5" height="7.5" fill="white" fill-opacity="0.7"/><rect x="1" y="9.5" width="7.5" height="7.5" fill="white" fill-opacity="0.7"/><rect x="9.5" y="9.5" width="7.5" height="7.5" fill="white" fill-opacity="0.95"/></svg> Sign in with Microsoft`;
+}
+
+// ── FILTERS & VIEW ──
+function setFilter(f, el) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderTasks();
+}
+function setView(v) {
+  currentView = v;
+  document.getElementById('btn-board').classList.toggle('active', v === 'board');
+  document.getElementById('btn-list').classList.toggle('active', v === 'list');
+  renderTasks();
+}
+
+function getFiltered() {
+  const q   = (document.getElementById('search-input')?.value || '').toLowerCase();
+  const now = new Date();
+  return tasks.filter(t => {
+    if (q && !t.title.toLowerCase().includes(q)) return false;
+    const done    = t.percentComplete === 100;
+    const overdue = t.dueDateTime && new Date(t.dueDateTime) < now && !done;
+    if (currentFilter === 'notStarted')  return t.percentComplete === 0;
+    if (currentFilter === 'inProgress')  return t.percentComplete > 0 && !done;
+    if (currentFilter === 'completed')   return done;
+    if (currentFilter === 'overdue')     return overdue;
+    return true;
+  });
+}
+
+// ── STATS ──
+function renderStats() {
+  const now    = new Date();
+  const total  = tasks.length;
+  const done   = tasks.filter(t => t.percentComplete === 100).length;
+  const inProg = tasks.filter(t => t.percentComplete > 0 && t.percentComplete < 100).length;
+  const over   = tasks.filter(t => t.dueDateTime && new Date(t.dueDateTime) < now && t.percentComplete !== 100).length;
+  const pct    = total ? Math.round(done / total * 100) : 0;
+
+  document.getElementById('stats-bar').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Total</div><div class="stat-num">${total}</div></div>
+    <div class="stat-card"><div class="stat-label">Completed</div><div class="stat-num green">${done}</div></div>
+    <div class="stat-card"><div class="stat-label">In progress</div><div class="stat-num amber">${inProg}</div></div>
+    <div class="stat-card"><div class="stat-label">Overdue</div><div class="stat-num red">${over}</div></div>
+    <div class="stat-card"><div class="stat-label">Progress</div><div class="stat-num green">${pct}%</div></div>
+  `;
+  const pw = document.getElementById('progress-wrap');
+  if (total > 0) {
+    pw.style.display = 'block';
+    document.getElementById('progress-label').textContent = `${done} of ${total} tasks completed`;
+    document.getElementById('progress-fill').style.width = pct + '%';
+  } else { pw.style.display = 'none'; }
+}
+
+// ── RENDER ──
+function pClass(p) {
+  if (p === 0) return 'p-urgent';
+  if (p <= 2)  return 'p-important';
+  if (p <= 5)  return 'p-medium';
+  return 'p-low';
+}
+function fmtDate(d) {
+  if (!d) return '';
+  const date = new Date(d), now = new Date();
+  const diff = Math.floor((date - now) / 86400000);
+  if (diff < -1) return `${Math.abs(diff)}d overdue`;
+  if (diff === -1) return 'Yesterday';
+  if (diff === 0)  return 'Today';
+  if (diff === 1)  return 'Tomorrow';
+  return date.toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+}
+function isOverdue(t) {
+  return t.dueDateTime && new Date(t.dueDateTime) < new Date() && t.percentComplete !== 100;
+}
+
+function renderTasks() {
+  const filtered = getFiltered();
+  const el = document.getElementById('content');
+  if (currentView === 'board') renderBoard(filtered, el);
+  else renderList(filtered, el);
+}
+
+function renderBoard(filtered, el) {
+  el.innerHTML = '<div class="board" id="board"></div>';
+  const board = document.getElementById('board');
+  buckets.forEach(b => {
+    const bt = filtered.filter(t => t.bucketId === b.id);
+    const col = document.createElement('div');
+    col.className = 'bucket';
+    col.innerHTML = `
+      <div class="bucket-header">
+        <span class="bucket-title">${b.name}</span>
+        <span class="bucket-count">${bt.length}</span>
+      </div>
+      <div class="bucket-tasks" id="bt-${b.id}"></div>
+      <button class="add-task-btn" onclick="openCreateModal('${b.id}')">+ Add task</button>
+    `;
+    board.appendChild(col);
+    const wrap = document.getElementById('bt-' + b.id);
+    bt.forEach(t => {
+      const c = document.createElement('div');
+      c.className = 'task-card' + (t.percentComplete === 100 ? ' done' : '');
+      c.onclick = () => openDetail(t.id);
+      const assignees = Object.keys(t.assignments || {});
+      c.innerHTML = `
+        <div class="task-title${t.percentComplete===100?' strikethrough':''}">${t.title}</div>
+        <div class="task-meta">
+          <span class="priority-dot ${pClass(t.priority)}"></span>
+          ${t.dueDateTime ? `<span class="due-badge${isOverdue(t)?' overdue':''}">📅 ${fmtDate(t.dueDateTime)}</span>` : ''}
+          ${assignees.length ? `<span class="assignee-chip">${assignees.length} assigned</span>` : ''}
+        </div>`;
+      wrap.appendChild(c);
+    });
+  });
+  if (!filtered.length) board.innerHTML = '<div class="empty-state">No tasks match this filter.<p>Try a different filter or create a new task.</p></div>';
+}
+
+function renderList(filtered, el) {
+  const bMap = {};
+  buckets.forEach(b => { bMap[b.id] = b.name; });
+  if (!filtered.length) {
+    el.innerHTML = '<div class="empty-state">No tasks match this filter.<p>Try a different filter or create a new task.</p></div>';
+    return;
+  }
+  el.innerHTML = '<div class="list-view">' + filtered.map(t => `
+    <div class="list-task${t.percentComplete===100?' done':''}" onclick="openDetail('${t.id}')">
+      <div class="check-circle${t.percentComplete===100?' checked':''}" onclick="event.stopPropagation();quickToggle('${t.id}')"></div>
+      <span class="priority-dot ${pClass(t.priority)}" style="flex-shrink:0"></span>
+      <span class="list-title${t.percentComplete===100?' strikethrough':''}">${t.title}</span>
+      ${bMap[t.bucketId] ? `<span class="list-bucket-tag">${bMap[t.bucketId]}</span>` : ''}
+      ${t.dueDateTime ? `<span class="list-due${isOverdue(t)?' overdue':''}">📅 ${fmtDate(t.dueDateTime)}</span>` : ''}
+    </div>`).join('') + '</div>';
+}
+
+// ── DETAIL ──
+function openDetail(id) {
+  const t = tasks.find(x => x.id === id);
+  if (!t) return;
+  detailTaskId = id;
+  const done = t.percentComplete === 100;
+  const bName = (buckets.find(b => b.id === t.bucketId) || {}).name || '—';
+  const pLabels = {0:'Urgent',2:'Important',5:'Medium',9:'Low'};
+  const pLabel = pLabels[t.priority] || 'Medium';
+  const statusKey = done ? 'completed' : (t.percentComplete > 0 ? 'inProgress' : 'notStarted');
+  const statusLabel = {notStarted:'Not started', inProgress:'In progress', completed:'Completed'}[statusKey];
+  document.getElementById('detail-title').textContent = t.title;
+  document.getElementById('detail-body').innerHTML = `
+    <div class="detail-grid">
+      <div class="detail-field"><div class="detail-label">Status</div><div><span class="status-badge s-${statusKey}">${statusLabel}</span></div></div>
+      <div class="detail-field"><div class="detail-label">Priority</div><div class="detail-val"><span class="priority-dot ${pClass(t.priority)}" style="display:inline-block;vertical-align:middle;margin-right:5px"></span>${pLabel}</div></div>
+      <div class="detail-field"><div class="detail-label">Bucket</div><div class="detail-val">${bName}</div></div>
+      <div class="detail-field"><div class="detail-label">Due date</div><div class="detail-val${isOverdue(t)?' overdue':''}">${t.dueDateTime ? new Date(t.dueDateTime).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}) : '—'}</div></div>
+    </div>
+    <div class="detail-field" style="margin-bottom:12px"><div class="detail-label">Notes</div><div class="detail-notes" id="task-desc">Loading…</div></div>
+    <div class="detail-field"><div class="detail-label">Created</div><div class="detail-val" style="font-size:13px;color:#888">${new Date(t.createdDateTime).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div></div>
+  `;
+  document.getElementById('detail-toggle-btn').textContent = done ? 'Mark incomplete' : 'Mark complete';
+  document.getElementById('detail-modal').classList.add('open');
+  loadNotes(id);
+}
+
+async function loadNotes(id) {
+  try {
+    const d = await callGraph(`/planner/tasks/${id}/details`);
+    const el = document.getElementById('task-desc');
+    if (el) el.textContent = d.description || '(no notes)';
+  } catch(e) { const el = document.getElementById('task-desc'); if (el) el.textContent = '(could not load notes)'; }
+}
+
+async function toggleTaskDone() {
+  const t = tasks.find(x => x.id === detailTaskId);
+  if (!t) return;
+  const pct = t.percentComplete === 100 ? 0 : 100;
+  try {
+    await callGraph(`/planner/tasks/${detailTaskId}`, 'PATCH', { percentComplete: pct });
+    t.percentComplete = pct;
+    closeModal('detail-modal');
+    renderStats(); renderTasks();
+  } catch(e) { alert('Update failed: ' + e.message); }
+}
+
+async function quickToggle(id) {
+  const t = tasks.find(x => x.id === id);
+  if (!t) return;
+  const pct = t.percentComplete === 100 ? 0 : 100;
+  try {
+    await callGraph(`/planner/tasks/${id}`, 'PATCH', { percentComplete: pct });
+    t.percentComplete = pct;
+    renderStats(); renderTasks();
+  } catch(e) { console.warn(e); }
+}
+
+// ── CREATE / EDIT ──
+function openCreateModal(bucketId) {
+  editingTaskId = null;
+  document.getElementById('create-modal-title').textContent = 'New task';
+  document.getElementById('create-btn').textContent = 'Create task';
+  document.getElementById('new-title').value = '';
+  document.getElementById('new-due').value = '';
+  document.getElementById('new-notes').value = '';
+  document.getElementById('new-priority').value = '5';
+  const bs = document.getElementById('new-bucket');
+  bs.innerHTML = buckets.map(b => `<option value="${b.id}"${b.id===bucketId?' selected':''}>${b.name}</option>`).join('');
+  document.getElementById('create-modal').classList.add('open');
+  setTimeout(() => document.getElementById('new-title').focus(), 80);
+}
+
+function openEditFromDetail() {
+  const t = tasks.find(x => x.id === detailTaskId);
+  if (!t) return;
+  closeModal('detail-modal');
+  editingTaskId = t.id;
+  document.getElementById('create-modal-title').textContent = 'Edit task';
+  document.getElementById('create-btn').textContent = 'Save changes';
+  document.getElementById('new-title').value = t.title;
+  document.getElementById('new-priority').value = String(t.priority);
+  document.getElementById('new-due').value = t.dueDateTime ? t.dueDateTime.split('T')[0] : '';
+  const bs = document.getElementById('new-bucket');
+  bs.innerHTML = buckets.map(b => `<option value="${b.id}"${b.id===t.bucketId?' selected':''}>${b.name}</option>`).join('');
+  document.getElementById('new-notes').value = '';
+  document.getElementById('create-modal').classList.add('open');
+  loadNotesIntoEdit(t.id);
+}
+
+async function loadNotesIntoEdit(id) {
+  try {
+    const d = await callGraph(`/planner/tasks/${id}/details`);
+    document.getElementById('new-notes').value = d.description || '';
+  } catch(e) {}
+}
+
+async function submitTask() {
+  const title = document.getElementById('new-title').value.trim();
+  if (!title) { document.getElementById('new-title').focus(); return; }
+  const btn = document.getElementById('create-btn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  const due = document.getElementById('new-due').value;
+  const notes = document.getElementById('new-notes').value.trim();
+  const priority = parseInt(document.getElementById('new-priority').value);
+  const bucketId = document.getElementById('new-bucket').value;
+
+  try {
+    if (editingTaskId) {
+      await callGraph(`/planner/tasks/${editingTaskId}`, 'PATCH', {
+        title, priority,
+        bucketId,
+        dueDateTime: due ? new Date(due).toISOString() : null
+      });
+      if (notes !== undefined) {
+        await new Promise(r => setTimeout(r, 400));
+        await callGraph(`/planner/tasks/${editingTaskId}/details`, 'PATCH', { description: notes });
+      }
+      const t = tasks.find(x => x.id === editingTaskId);
+      if (t) { t.title = title; t.priority = priority; t.bucketId = bucketId; t.dueDateTime = due ? new Date(due).toISOString() : null; }
+    } else {
+      const body = { planId: currentPlan.id, bucketId, title, priority };
+      if (due) body.dueDateTime = new Date(due).toISOString();
+      const created = await callGraph('/planner/tasks', 'POST', body);
+      if (notes) {
+        await new Promise(r => setTimeout(r, 500));
+        await callGraph(`/planner/tasks/${created.id}/details`, 'PATCH', { description: notes });
+      }
+      tasks.unshift(created);
+    }
+    closeModal('create-modal');
+    renderStats(); renderTasks();
+  } catch(e) {
+    alert('Failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = editingTaskId ? 'Save changes' : 'Create task';
+  }
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(o => o.classList.remove('open'));
+});
+</script>
+</body>
+</html>
