@@ -353,74 +353,61 @@ Be concise and professional. Confirm every action. Highlight overdue tasks. Don'
 
 
 async function fetchSharePointDoc(url) {
-  // Convert SharePoint URL to Graph API path
-  // Handles: https://tenant.sharepoint.com/sites/site/Shared Documents/file.docx
-  // Also handles share links: https://tenant.sharepoint.com/:w:/...
-  try {
-    // Try to get file content via Graph driveItem
-    // First resolve the site and drive from the URL
-    const urlObj = new URL(url);
-    const host = urlObj.hostname;
-    const path = urlObj.pathname;
+  const urlObj = new URL(url);
+  const host = urlObj.hostname;
+  const pathname = urlObj.pathname;
 
-    // Extract site path (everything up to /Shared Documents or similar)
-    const siteMatch = path.match(/^(\/sites\/[^\/]+)/);
-    const sitePath = siteMatch ? siteMatch[1] : '/';
-    const siteId = `${host}:${sitePath}`;
+  // Decode and extract site path + file path
+  // Handles both:
+  //   /sites/Site/Shared Documents/folder/file.docx  (direct)
+  //   /:w:/r/sites/Site/Shared%20Documents/folder/file.docx  (sharing link)
+  const decoded = decodeURIComponent(pathname);
 
-    // Get the site
-    const siteData = await callGraph(`/sites/${siteId}`);
+  // Find /sites/SITENAME
+  const siteMatch = decoded.match(/\/sites\/([^\/]+)/);
+  if (!siteMatch) throw new Error('Could not find site name in URL');
+  const siteName = siteMatch[1];
+  const siteId = `${host}:/sites/${siteName}`;
 
-    // Get the file path relative to the document library
-    const filePathMatch = path.match(/\/(?:Shared Documents|Documents|Shared%20Documents)\/(.+)$/i);
-    if (!filePathMatch) throw new Error('Could not find file path in URL');
-    const filePath = decodeURIComponent(filePathMatch[1]);
+  // Get site metadata
+  const siteData = await callGraph(`/sites/${siteId}`);
 
-    // Get file content as plain text via Graph
-    const driveItem = await callGraph(`/sites/${siteData.id}/drive/root:/${filePath}`);
+  // Find file path after "Shared Documents" or "Documents"
+  const fileMatch = decoded.match(/\/(?:Shared Documents|Documents)\/(.+\.docx)/i);
+  if (!fileMatch) throw new Error('Could not find .docx file path in URL');
+  const filePath = fileMatch[1];
 
-    // Download the file content
-    const downloadUrl = driveItem['@microsoft.graph.downloadUrl'];
-    if (!downloadUrl) throw new Error('Could not get download URL');
+  // Get drive item
+  const item = await callGraph(`/sites/${siteData.id}/drive/root:/Shared Documents/${filePath}`);
 
-    const response = await fetch(downloadUrl);
-    if (!response.ok) throw new Error('Failed to download file');
+  // Try to get as plain text using format=text
+  const textResp = await fetch(
+    `${GRAPH}/sites/${siteData.id}/drive/root:/Shared Documents/${encodeURIComponent(filePath)}:/content?format=text`,
+    { headers: { 'Authorization': 'Bearer ' + accessToken } }
+  );
 
-    // For .docx files, we get binary content - use the text extraction endpoint instead
-    const textResponse = await callGraph(`/sites/${siteData.id}/drive/root:/${filePath}:/content?format=text`, 'GET');
-    return null; // fallback below
-  } catch(e) {
-    // Fallback: try direct content extraction
-    try {
-      const urlObj = new URL(url);
-      const host = urlObj.hostname;
-      const path = urlObj.pathname;
-      const siteMatch = path.match(/^(\/sites\/[^\/]+)/);
-      const sitePath = siteMatch ? siteMatch[1] : '/';
-      const siteId = `${host}:${sitePath}`;
-      const siteData = await callGraph(`/sites/${siteId}`);
-      const filePathMatch = path.match(/\/(?:Shared Documents|Documents|Shared%20Documents)\/(.+)$/i);
-      if (!filePathMatch) throw new Error('Could not parse file path');
-      const filePath = decodeURIComponent(filePathMatch[1]);
+  if (textResp.ok) {
+    const text = await textResp.text();
+    return `File: ${item.name}
 
-      // Use Graph to get plain text
-      const r = await fetch(`${GRAPH}/sites/${siteData.id}/drive/root:/${encodeURIComponent(filePath)}:/content?format=text`, {
-        headers: { 'Authorization': 'Bearer ' + accessToken }
-      });
-      if (!r.ok) {
-        // Try getting the download URL and fetching as text
-        const item = await callGraph(`/sites/${siteData.id}/drive/root:/${filePath}`);
-        const dlUrl = item['@microsoft.graph.downloadUrl'];
-        if (!dlUrl) throw new Error('No download URL available');
-        // Return the item metadata at least
-        return `Document: ${item.name}\nSize: ${item.size} bytes\nLast modified: ${item.lastModifiedDateTime}\n\n[Document content could not be extracted as plain text. The file is a Word document (.docx). Please copy and paste the relevant text content directly into the chat.]`;
-      }
-      const text = await r.text();
-      return text.slice(0, 15000); // limit to 15k chars
-    } catch(e2) {
-      throw new Error('Could not read document: ' + e2.message);
+${text.slice(0, 15000)}`;
+  }
+
+  // Fallback: download raw and return metadata note
+  const dlUrl = item['@microsoft.graph.downloadUrl'];
+  if (dlUrl) {
+    const raw = await fetch(dlUrl);
+    if (raw.ok) {
+      // docx is binary — return what we know
+      return `File: ${item.name}
+Last modified: ${item.lastModifiedDateTime}
+Size: ${item.size} bytes
+
+[This is a Word document. The raw binary content cannot be read as plain text. Please copy the relevant text from the document and paste it here directly.]`;
     }
   }
+
+  throw new Error('Could not extract document content');
 }
 
 function isSharePointUrl(text) {
