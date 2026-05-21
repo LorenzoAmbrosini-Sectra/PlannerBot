@@ -185,7 +185,7 @@
         <svg viewBox="0 0 30 30"><path d="M5 7h20M5 15h13M5 23h16"/><circle cx="23" cy="23" r="5"/><path d="M21 23l1.5 1.5L25.5 21"/></svg>
       </div>
       <div class="welcome-title">How can I help you today?</div>
-      <div class="welcome-sub">Ask about your tasks, paste a document to create tasks from it, or ask me to create, edit, complete or delete tasks.</div>
+      <div class="welcome-sub">Ask about your tasks, paste a SharePoint document link to create tasks from it, or ask me to create, edit, complete or delete tasks.</div>
     </div>
   </div>
 
@@ -194,6 +194,7 @@
     <button class="sug" onclick="useSug(this)">What's overdue?</button>
     <button class="sug" onclick="useSug(this)">Show urgent tasks</button>
     <button class="sug" onclick="useSug(this)">Create tasks from a document</button>
+    <button class="sug" onclick="useSug(this)">Paste a SharePoint link to read a document</button>
     <button class="sug" onclick="useSug(this)">What did I complete recently?</button>
   </div>
 
@@ -212,7 +213,7 @@
 const CLIENT_ID  = '5ef81d14-7831-4351-8bdd-1ce20332c76a';
 const AUTHORITY  = 'https://login.microsoftonline.com/9ef776ce-851e-48c1-9cb2-f5d8498c8b15';
 const REDIRECT   = 'https://lorenzoambrosini-sectra.github.io/PlannerBot';
-const SCOPES     = ['Tasks.ReadWrite', 'Group.Read.All', 'User.Read'];
+const SCOPES     = ['Tasks.ReadWrite', 'Group.Read.All', 'User.Read', 'Files.Read.All', 'Sites.Read.All'];
 const GRAPH      = 'https://graph.microsoft.com/v1.0';
 const AZ_URL     = 'https://openai-poc-infra.openai.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2024-02-01';
 const AZ_KEY = sessionStorage.getItem('pb_azkey');
@@ -350,6 +351,88 @@ Priority: 0=urgent, 2=important, 5=medium, 9=low. Default bucket: ${buckets[0]?.
 Be concise and professional. Confirm every action. Highlight overdue tasks. Don't list all tasks unless asked.`;
 }
 
+
+async function fetchSharePointDoc(url) {
+  // Convert SharePoint URL to Graph API path
+  // Handles: https://tenant.sharepoint.com/sites/site/Shared Documents/file.docx
+  // Also handles share links: https://tenant.sharepoint.com/:w:/...
+  try {
+    // Try to get file content via Graph driveItem
+    // First resolve the site and drive from the URL
+    const urlObj = new URL(url);
+    const host = urlObj.hostname;
+    const path = urlObj.pathname;
+
+    // Extract site path (everything up to /Shared Documents or similar)
+    const siteMatch = path.match(/^(\/sites\/[^\/]+)/);
+    const sitePath = siteMatch ? siteMatch[1] : '/';
+    const siteId = `${host}:${sitePath}`;
+
+    // Get the site
+    const siteData = await callGraph(`/sites/${siteId}`);
+
+    // Get the file path relative to the document library
+    const filePathMatch = path.match(/\/(?:Shared Documents|Documents|Shared%20Documents)\/(.+)$/i);
+    if (!filePathMatch) throw new Error('Could not find file path in URL');
+    const filePath = decodeURIComponent(filePathMatch[1]);
+
+    // Get file content as plain text via Graph
+    const driveItem = await callGraph(`/sites/${siteData.id}/drive/root:/${filePath}`);
+
+    // Download the file content
+    const downloadUrl = driveItem['@microsoft.graph.downloadUrl'];
+    if (!downloadUrl) throw new Error('Could not get download URL');
+
+    const response = await fetch(downloadUrl);
+    if (!response.ok) throw new Error('Failed to download file');
+
+    // For .docx files, we get binary content - use the text extraction endpoint instead
+    const textResponse = await callGraph(`/sites/${siteData.id}/drive/root:/${filePath}:/content?format=text`, 'GET');
+    return null; // fallback below
+  } catch(e) {
+    // Fallback: try direct content extraction
+    try {
+      const urlObj = new URL(url);
+      const host = urlObj.hostname;
+      const path = urlObj.pathname;
+      const siteMatch = path.match(/^(\/sites\/[^\/]+)/);
+      const sitePath = siteMatch ? siteMatch[1] : '/';
+      const siteId = `${host}:${sitePath}`;
+      const siteData = await callGraph(`/sites/${siteId}`);
+      const filePathMatch = path.match(/\/(?:Shared Documents|Documents|Shared%20Documents)\/(.+)$/i);
+      if (!filePathMatch) throw new Error('Could not parse file path');
+      const filePath = decodeURIComponent(filePathMatch[1]);
+
+      // Use Graph to get plain text
+      const r = await fetch(`${GRAPH}/sites/${siteData.id}/drive/root:/${encodeURIComponent(filePath)}:/content?format=text`, {
+        headers: { 'Authorization': 'Bearer ' + accessToken }
+      });
+      if (!r.ok) {
+        // Try getting the download URL and fetching as text
+        const item = await callGraph(`/sites/${siteData.id}/drive/root:/${filePath}`);
+        const dlUrl = item['@microsoft.graph.downloadUrl'];
+        if (!dlUrl) throw new Error('No download URL available');
+        // Return the item metadata at least
+        return `Document: ${item.name}\nSize: ${item.size} bytes\nLast modified: ${item.lastModifiedDateTime}\n\n[Document content could not be extracted as plain text. The file is a Word document (.docx). Please copy and paste the relevant text content directly into the chat.]`;
+      }
+      const text = await r.text();
+      return text.slice(0, 15000); // limit to 15k chars
+    } catch(e2) {
+      throw new Error('Could not read document: ' + e2.message);
+    }
+  }
+}
+
+function isSharePointUrl(text) {
+  return /https?:\/\/[a-z0-9-]+\.sharepoint\.com\S+/i.test(text) ||
+         /https?:\/\/[a-z0-9-]+\.office\.com\S+/i.test(text);
+}
+
+function extractUrl(text) {
+  const match = text.match(/https?:\/\/\S+/);
+  return match ? match[0] : null;
+}
+
 async function sendMsg() {
   if (busy) return;
   const inp = document.getElementById('chat-input');
@@ -364,7 +447,32 @@ async function sendMsg() {
   busy = true; document.getElementById('send-btn').disabled = true;
 
   try {
-    history.push({ role:'user', content:text });
+    let messageContent = text;
+
+    // If message contains a SharePoint URL, fetch the document
+    if (isSharePointUrl(text)) {
+      const spUrl = extractUrl(text);
+      if (spUrl) {
+        try {
+          addMsg('bot', '📄 Fetching document from SharePoint…');
+          const docContent = await fetchSharePointDoc(spUrl);
+          if (docContent) {
+            const userInstruction = text.replace(spUrl, '').trim() || 'Create tasks from this document';
+            messageContent = `${userInstruction}\n\n--- DOCUMENT CONTENT ---\n${docContent}\n--- END OF DOCUMENT ---`;
+          }
+        } catch(docErr) {
+          typing.remove();
+          addMsg('bot', '⚠️ Could not read the document: ' + docErr.message + '\n\nMake sure you are signed in with an account that has access to this file, and that the URL points directly to the file (not a folder).');
+          busy=false; document.getElementById('send-btn').disabled=false;
+          return;
+        }
+        // Remove the "fetching" message
+        const msgs = document.getElementById('chat-area').querySelectorAll('.msg.bot');
+        msgs[msgs.length-1].remove();
+      }
+    }
+
+    history.push({ role:'user', content:messageContent });
     const res = await fetch(AZ_URL, {
       method: 'POST',
       headers: { 'Content-Type':'application/json', 'api-key': AZ_KEY },
