@@ -450,20 +450,53 @@ async function quickToggle(taskId) {
 
 // ── SHAREPOINT ──
 async function fetchSharePointDoc(url) {
-  const encoded = btoa(url).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  // Encode URL for Graph shares endpoint
+  const encoded = btoa(url).replace(/=/g,'').replace(/[+]/g,'-').replace(/[/]/g,'_');
   const shareToken = 'u!' + encoded;
+
+  // Resolve shared item via Graph
   const shareItem = await callGraph(`/shares/${shareToken}/driveItem`);
-  if (!shareItem?.id) throw new Error('Could not resolve the shared link.');
-  const driveId = shareItem.parentReference?.driveId;
+  if (!shareItem || !shareItem.id) throw new Error('Could not resolve the shared link.');
+  const driveId = shareItem.parentReference && shareItem.parentReference.driveId;
   if (!driveId) throw new Error('Could not determine drive from shared link.');
+
+  // Method 1: format=text conversion
   const textResp = await fetch(`${GRAPH}/drives/${driveId}/items/${shareItem.id}/content?format=text`, {
     headers: { 'Authorization': 'Bearer ' + accessToken }
   });
   if (textResp.ok) {
     const text = await textResp.text();
-    return `File: ${shareItem.name}\n\n${text.slice(0, 15000)}`;
+    if (text && text.trim().length > 100) {
+      return 'File: ' + shareItem.name + '\n\n' + text.slice(0, 15000);
+    }
   }
-  return `File: ${shareItem.name}\nLast modified: ${shareItem.lastModifiedDateTime}\n\n[Could not extract text automatically. Please paste the document content directly.]`;
+
+  // Method 2: download raw docx and parse XML
+  const dlResp = await fetch(`${GRAPH}/drives/${driveId}/items/${shareItem.id}/content`, {
+    headers: { 'Authorization': 'Bearer ' + accessToken }
+  });
+  if (!dlResp.ok) throw new Error('Could not download file: ' + dlResp.status);
+
+  const arrayBuffer = await dlResp.arrayBuffer();
+  const uint8 = new Uint8Array(arrayBuffer);
+  const decoder = new TextDecoder('utf-8', { fatal: false });
+  const rawText = decoder.decode(uint8);
+
+  // Extract text from Word XML w:t tags
+  const matches = rawText.match(/<w:t[\s\S]*?>([^<]+)<\/w:t>/g);
+  if (matches && matches.length > 5) {
+    const extracted = matches
+      .map(function(m) { return m.replace(/<[^>]+>/g, ''); })
+      .filter(function(t) { return t.trim().length > 0; })
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (extracted.length > 100) {
+      return 'File: ' + shareItem.name + '\n\n' + extracted.slice(0, 15000);
+    }
+  }
+
+  throw new Error('Could not extract text from the document. Please copy and paste the content directly into the chat.');
 }
 
 function isSharePointUrl(text) {
