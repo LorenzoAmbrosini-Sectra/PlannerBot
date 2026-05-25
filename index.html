@@ -58,6 +58,55 @@
     border-radius: 7px; padding: 9px 12px; display: none;
   }
 
+  /* ── PLAN PICKER ── */
+  #plan-screen {
+    flex: 1; display: none; align-items: center; justify-content: center;
+    padding: 2rem;
+    background: linear-gradient(160deg, #004071 0%, #00548e 50%, #0a93cd 100%);
+  }
+  #plan-screen.active { display: flex; }
+  .plan-card {
+    background: var(--white); border-radius: 16px; padding: 2.5rem;
+    width: 100%; max-width: 480px;
+    box-shadow: 0 8px 40px rgba(0,64,113,0.25);
+    display: flex; flex-direction: column; gap: 1.25rem;
+  }
+  .plan-card-logo { display: flex; align-items: center; gap: 12px; }
+  .plan-card-logo-icon { width: 40px; height: 40px; background: var(--navy); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+  .plan-card-logo-icon svg { width: 22px; height: 22px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; }
+  .plan-card-title { font-size: 22px; font-weight: 700; color: var(--navy); }
+  .plan-user-line { font-size: 13px; color: var(--text2); }
+  .plan-user-line strong { color: var(--navy); }
+  .plan-section-label { font-size: 11px; font-weight: 700; color: var(--navy1); text-transform: uppercase; letter-spacing: .07em; }
+  .plan-list { display: flex; flex-direction: column; gap: 8px; }
+  .plan-option {
+    padding: 12px 14px; border: 1.5px solid var(--border2);
+    border-radius: 10px; cursor: pointer; transition: all .15s;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    background: var(--white);
+  }
+  .plan-option:hover { border-color: var(--web); background: var(--user-bubble); }
+  .plan-option-info { flex: 1; min-width: 0; }
+  .plan-option-name { font-size: 14px; font-weight: 600; color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .plan-option-meta { font-size: 12px; color: var(--text3); margin-top: 2px; }
+  .plan-option-arrow { color: var(--blue3); font-size: 18px; flex-shrink: 0; }
+  .plan-divider { height: 1px; background: var(--border); }
+  .plan-search-wrap { position: relative; }
+  .plan-search-wrap input { width: 100%; padding: 9px 12px 9px 34px; border: 1.5px solid var(--border2); border-radius: 8px; font-size: 13px; background: var(--bg); color: var(--text); font-family: inherit; }
+  .plan-search-wrap input:focus { outline: none; border-color: var(--web); background: var(--white); }
+  .plan-search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; opacity: .4; pointer-events: none; }
+  .plan-all-list { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
+  .plan-all-list::-webkit-scrollbar { width: 3px; }
+  .plan-all-list::-webkit-scrollbar-thumb { background: var(--blue4); border-radius: 2px; }
+  .plan-small-option {
+    padding: 9px 12px; border: 1px solid var(--border);
+    border-radius: 8px; cursor: pointer; transition: all .12s;
+    font-size: 13px; color: var(--text); background: var(--white);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .plan-small-option:hover { border-color: var(--web); background: var(--user-bubble); color: var(--navy); }
+  .plan-small-meta { font-size: 11px; color: var(--text3); }
+
   /* ── APP ── */
   #app { flex: 1; display: none; flex-direction: column; overflow: hidden; height: 100%; }
 
@@ -75,10 +124,6 @@
   .header-user { font-size: 12px; color: var(--blue4); }
   .btn-ghost { padding: 5px 11px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; font-size: 12px; color: #fff; cursor: pointer; font-family: inherit; transition: background .12s; }
   .btn-ghost:hover { background: rgba(255,255,255,0.2); }
-
-  .plan-tabs { display: flex; gap: 6px; padding: 8px 1.25rem; background: var(--surface2); border-bottom: 1px solid var(--border); flex-shrink: 0; overflow-x: auto; }
-  .plan-tab { padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border2); background: var(--white); color: var(--text2); white-space: nowrap; font-family: inherit; transition: all .12s; }
-  .plan-tab.active { background: var(--navy); color: #fff; border-color: var(--navy); }
 
   .chat-area {
     flex: 1; overflow-y: auto; padding: 1.5rem 1rem;
@@ -162,6 +207,26 @@
   </div>
 </div>
 
+<!-- PLAN PICKER -->
+<div id="plan-screen">
+  <div class="plan-card">
+    <div class="plan-card-logo">
+      <div class="plan-card-logo-icon"><svg viewBox="0 0 22 22"><path d="M3 5h16M3 11h10M3 17h13"/></svg></div>
+      <span class="plan-card-title">PlannerBot</span>
+    </div>
+    <div class="plan-user-line" id="plan-user-line"></div>
+    <div class="plan-section-label">Recent plans</div>
+    <div class="plan-list" id="recent-plan-list"></div>
+    <div class="plan-divider"></div>
+    <div class="plan-section-label">All plans</div>
+    <div class="plan-search-wrap">
+      <svg class="plan-search-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4"/><path d="m10.5 10.5 3 3"/></svg>
+      <input type="text" id="plan-search" placeholder="Search plans…" oninput="filterPlans(this.value)" />
+    </div>
+    <div class="plan-all-list" id="all-plan-list"></div>
+  </div>
+</div>
+
 <!-- APP -->
 <div id="app">
   <div class="header">
@@ -176,8 +241,6 @@
       <button class="btn-ghost" onclick="signOut()">Sign out</button>
     </div>
   </div>
-
-  <div class="plan-tabs" id="plan-tabs" style="display:none"></div>
 
   <div class="chat-area" id="chat-area">
     <div class="welcome" id="welcome">
@@ -258,7 +321,6 @@ async function initApp() {
     const me = await callGraph('/me');
     document.getElementById('header-user').textContent = me.displayName || me.mail;
     document.getElementById('auth-screen').style.display = 'none';
-    document.getElementById('app').style.display = 'flex';
     await loadPlans();
   } catch(e) { showAuthError('Failed to load: ' + e.message); }
 }
@@ -267,28 +329,67 @@ async function loadPlans() {
   const data = await callGraph('/me/planner/plans');
   plans = data.value || [];
   if (!plans.length) return;
-  currentPlan = plans[0];
-  document.getElementById('header-plan').textContent = currentPlan.title;
-  await refreshTasks();
-  if (plans.length > 1) renderPlanTabs();
+
+  // Load task counts for each plan to determine "most used"
+  const planDetails = await Promise.all(plans.map(async p => {
+    try {
+      const td = await callGraph(`/planner/plans/${p.id}/tasks`);
+      p.taskCount = (td.value || []).filter(t => t.percentComplete !== 100).length;
+    } catch(e) { p.taskCount = 0; }
+    return p;
+  }));
+
+  // Sort by task count descending for "recent/active"
+  const sorted = [...planDetails].sort((a, b) => b.taskCount - a.taskCount);
+  const recent = sorted.slice(0, 3);
+
+  // Show plan picker
+  document.getElementById('plan-user-line').innerHTML =
+    `Welcome, <strong>${document.getElementById('header-user').textContent}</strong>. Which plan would you like to work on?`;
+
+  const recentList = document.getElementById('recent-plan-list');
+  recentList.innerHTML = '';
+  recent.forEach(p => {
+    const el = document.createElement('div');
+    el.className = 'plan-option';
+    el.innerHTML = `
+      <div class="plan-option-info">
+        <div class="plan-option-name">${p.title}</div>
+        <div class="plan-option-meta">${p.taskCount} active task${p.taskCount !== 1 ? 's' : ''}</div>
+      </div>
+      <div class="plan-option-arrow">→</div>`;
+    el.onclick = () => selectPlan(p);
+    recentList.appendChild(el);
+  });
+
+  renderAllPlans(plans);
+  document.getElementById('plan-screen').classList.add('active');
 }
 
-function renderPlanTabs() {
-  const tabs = document.getElementById('plan-tabs');
-  tabs.style.display = 'flex'; tabs.innerHTML = '';
-  plans.forEach(p => {
-    const btn = document.createElement('button');
-    btn.className = 'plan-tab' + (p.id === currentPlan.id ? ' active' : '');
-    btn.textContent = p.title;
-    btn.onclick = async () => {
-      currentPlan = p;
-      document.getElementById('header-plan').textContent = p.title;
-      document.querySelectorAll('.plan-tab').forEach(t => t.classList.remove('active'));
-      btn.classList.add('active');
-      await refreshTasks();
-    };
-    tabs.appendChild(btn);
+function renderAllPlans(list) {
+  const allList = document.getElementById('all-plan-list');
+  allList.innerHTML = '';
+  list.forEach(p => {
+    const el = document.createElement('div');
+    el.className = 'plan-small-option';
+    el.innerHTML = `<span>${p.title}</span><span class="plan-small-meta">${p.taskCount ?? 0} active</span>`;
+    el.onclick = () => selectPlan(p);
+    allList.appendChild(el);
   });
+}
+
+function filterPlans(query) {
+  const filtered = plans.filter(p => p.title.toLowerCase().includes(query.toLowerCase()));
+  renderAllPlans(filtered);
+}
+
+async function selectPlan(plan) {
+  currentPlan = plan;
+  document.getElementById('plan-screen').classList.remove('active');
+  document.getElementById('plan-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('header-plan').textContent = plan.title;
+  await refreshTasks();
 }
 
 async function refreshTasks() {
@@ -353,59 +454,42 @@ Be concise and professional. Confirm every action. Highlight overdue tasks. Don'
 
 
 async function fetchSharePointDoc(url) {
-  const urlObj = new URL(url);
-  const host = urlObj.hostname;
+  // Microsoft Graph supports resolving any SharePoint sharing URL via
+  // the /shares endpoint using a base64-encoded version of the URL.
+  // This works for all link types: sharing links, direct URLs, etc.
 
-  // Decode the full pathname
-  const decoded = decodeURIComponent(urlObj.pathname);
+  // Encode the URL for the shares endpoint
+  const encoded = btoa(url).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  const shareToken = 'u!' + encoded;
 
-  // Extract site name
-  const siteMatch = decoded.match(/\/sites\/([^\/]+)/);
-  if (!siteMatch) throw new Error('Could not find SharePoint site in URL');
-  const siteName = siteMatch[1];
+  // Resolve the shared item
+  const shareItem = await callGraph(`/shares/${shareToken}/driveItem`);
 
-  // Get site
-  const siteData = await callGraph(`/sites/${host}:/sites/${siteName}`);
+  if (!shareItem || !shareItem.id) {
+    throw new Error('Could not resolve the shared link. Make sure the link is valid and you have access.');
+  }
 
-  // Get the default document library drive
-  const drivesData = await callGraph(`/sites/${siteData.id}/drives`);
-  const docDrive = drivesData.value.find(d => d.name === 'Documents' || d.name === 'Shared Documents') || drivesData.value[0];
+  const driveId = shareItem.parentReference?.driveId;
+  if (!driveId) throw new Error('Could not determine drive from shared link.');
 
-  // Extract file path after /sites/SITENAME/
-  // Strip /:w:/r prefix if present, then strip /sites/SITENAME/
-  let filePath = decoded
-    .replace(/^\/:w:\/r/, '')
-    .replace(/^\/sites\/[^\/]+\//, '');
-
-  // Strip leading "Shared Documents/" or "Documents/" — the drive root IS the doc library
-  filePath = filePath.replace(/^(?:Shared Documents|Documents)\//, '');
-
-  // Get the drive item
-  const item = await callGraph(`/drives/${docDrive.id}/root:/${filePath}`);
-
-  // Try plain text extraction (works for .docx)
+  // Try plain text extraction
   const textResp = await fetch(
-    `${GRAPH}/drives/${docDrive.id}/items/${item.id}/content?format=text`,
+    `${GRAPH}/drives/${driveId}/items/${shareItem.id}/content?format=text`,
     { headers: { 'Authorization': 'Bearer ' + accessToken } }
   );
 
   if (textResp.ok) {
     const text = await textResp.text();
-    return `File: ${item.name}
+    return `File: ${shareItem.name}
 
 ${text.slice(0, 15000)}`;
   }
 
-  // Fallback: use download URL but note it is binary
-  const dlUrl = item['@microsoft.graph.downloadUrl'];
-  if (dlUrl) {
-    return `File: ${item.name}
-Last modified: ${item.lastModifiedDateTime}
+  // Fallback: file found but text extraction failed
+  return `File: ${shareItem.name}
+Last modified: ${shareItem.lastModifiedDateTime}
 
-[Word document found but plain text extraction failed. Please copy and paste the relevant text from the document directly into the chat.]`;
-  }
-
-  throw new Error('File found but content could not be extracted.');
+[Word document found but text could not be extracted automatically. Please copy and paste the relevant content from the document directly into the chat.]`;
 }
 
 function isSharePointUrl(text) {
