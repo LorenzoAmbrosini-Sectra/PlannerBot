@@ -12,168 +12,138 @@
     --blue3: #61a9d6; --blue4: #97c9ec; --blue5: #aad3f1;
     --web: #005fa2; --grey: #939598; --orange: #f58025;
     --bg: #f4f5f6; --white: #ffffff;
-    --surface: #ffffff; --surface2: #eef3f8;
     --border: rgba(0,64,113,0.12); --border2: rgba(0,64,113,0.2);
     --text: #1a2a3a; --text2: #4a6070; --text3: #939598;
-    --user-bubble: #e8f2fa;
+    --user-bubble: #e8f2fa; --surface2: #eef3f8;
   }
-  html, body { height: 100%; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: var(--bg); color: var(--text);
-    display: flex; flex-direction: column; overflow: hidden;
-  }
+  html, body { height: 100%; overflow: hidden; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; }
 
   /* ── AUTH ── */
   #auth-screen {
-    flex: 1; display: flex; align-items: center; justify-content: center;
-    padding: 2rem;
+    flex: 1; display: flex; align-items: center; justify-content: center; padding: 2rem;
     background: linear-gradient(160deg, #004071 0%, #00548e 50%, #0a93cd 100%);
   }
-  .auth-card {
-    background: var(--white); border-radius: 16px; padding: 2.5rem;
-    width: 100%; max-width: 400px;
-    box-shadow: 0 8px 40px rgba(0,64,113,0.25);
-    display: flex; flex-direction: column; gap: 1.25rem;
-  }
+  .auth-card { background: var(--white); border-radius: 16px; padding: 2.5rem; width: 100%; max-width: 400px; box-shadow: 0 8px 40px rgba(0,64,113,0.25); display: flex; flex-direction: column; gap: 1.25rem; }
   .auth-logo { display: flex; align-items: center; gap: 12px; }
   .auth-logo-icon { width: 40px; height: 40px; background: var(--navy); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
   .auth-logo-icon svg { width: 22px; height: 22px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; }
   .auth-logo-text { font-size: 22px; font-weight: 700; color: var(--navy); }
   .auth-tagline { font-size: 13px; color: var(--text2); line-height: 1.6; }
   .auth-divider { height: 1px; background: var(--border); }
-  .auth-hint { font-size: 12px; color: var(--text3); line-height: 1.6; }
-  .auth-hint a { color: var(--web); text-decoration: none; font-weight: 500; }
-  .btn-primary {
-    width: 100%; padding: 12px; background: var(--navy); color: #fff;
-    border: none; border-radius: 8px; font-size: 14px; font-weight: 600;
-    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
-    font-family: inherit; transition: background .15s;
-  }
+  .field-label { font-size: 11px; font-weight: 700; color: var(--navy1); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 6px; }
+  .field-input { width: 100%; padding: 10px 12px; background: var(--bg); border: 1.5px solid var(--border2); border-radius: 8px; font-size: 13px; color: var(--text); font-family: inherit; transition: border-color .15s; }
+  .field-input:focus { outline: none; border-color: var(--web); background: var(--white); }
+  .field-input::placeholder { color: var(--text3); }
+  .field-hint { font-size: 12px; color: var(--text3); margin-top: 5px; line-height: 1.5; }
+  .field-hint a { color: var(--web); text-decoration: none; }
+  .btn-primary { width: 100%; padding: 12px; background: var(--navy); color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-family: inherit; transition: background .15s; }
   .btn-primary:hover { background: var(--navy1); }
   .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
-  .auth-error {
-    font-size: 13px; color: #a0320a;
-    background: rgba(245,128,37,0.1); border: 1px solid rgba(245,128,37,0.3);
-    border-radius: 7px; padding: 9px 12px; display: none;
-  }
-
-  /* ── PLAN PICKER ── */
-  #plan-screen {
-    flex: 1; display: none; align-items: center; justify-content: center;
-    padding: 2rem;
-    background: linear-gradient(160deg, #004071 0%, #00548e 50%, #0a93cd 100%);
-  }
-  #plan-screen.active { display: flex; }
-  .plan-card {
-    background: var(--white); border-radius: 16px; padding: 2.5rem;
-    width: 100%; max-width: 480px;
-    box-shadow: 0 8px 40px rgba(0,64,113,0.25);
-    display: flex; flex-direction: column; gap: 1.25rem;
-  }
-  .plan-card-logo { display: flex; align-items: center; gap: 12px; }
-  .plan-card-logo-icon { width: 40px; height: 40px; background: var(--navy); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
-  .plan-card-logo-icon svg { width: 22px; height: 22px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; }
-  .plan-card-title { font-size: 22px; font-weight: 700; color: var(--navy); }
-  .plan-user-line { font-size: 13px; color: var(--text2); }
-  .plan-user-line strong { color: var(--navy); }
-  .plan-section-label { font-size: 11px; font-weight: 700; color: var(--navy1); text-transform: uppercase; letter-spacing: .07em; }
-  .plan-list { display: flex; flex-direction: column; gap: 8px; }
-  .plan-option {
-    padding: 12px 14px; border: 1.5px solid var(--border2);
-    border-radius: 10px; cursor: pointer; transition: all .15s;
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    background: var(--white);
-  }
-  .plan-option:hover { border-color: var(--web); background: var(--user-bubble); }
-  .plan-option-info { flex: 1; min-width: 0; }
-  .plan-option-name { font-size: 14px; font-weight: 600; color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .plan-option-meta { font-size: 12px; color: var(--text3); margin-top: 2px; }
-  .plan-option-arrow { color: var(--blue3); font-size: 18px; flex-shrink: 0; }
-  .plan-divider { height: 1px; background: var(--border); }
-  .plan-search-wrap { position: relative; }
-  .plan-search-wrap input { width: 100%; padding: 9px 12px 9px 34px; border: 1.5px solid var(--border2); border-radius: 8px; font-size: 13px; background: var(--bg); color: var(--text); font-family: inherit; }
-  .plan-search-wrap input:focus { outline: none; border-color: var(--web); background: var(--white); }
-  .plan-search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; opacity: .4; pointer-events: none; }
-  .plan-all-list { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
-  .plan-all-list::-webkit-scrollbar { width: 3px; }
-  .plan-all-list::-webkit-scrollbar-thumb { background: var(--blue4); border-radius: 2px; }
-  .plan-small-option {
-    padding: 9px 12px; border: 1px solid var(--border);
-    border-radius: 8px; cursor: pointer; transition: all .12s;
-    font-size: 13px; color: var(--text); background: var(--white);
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .plan-small-option:hover { border-color: var(--web); background: var(--user-bubble); color: var(--navy); }
-  .plan-small-meta { font-size: 11px; color: var(--text3); }
+  .auth-error { font-size: 13px; color: #a0320a; background: rgba(245,128,37,0.1); border: 1px solid rgba(245,128,37,0.3); border-radius: 7px; padding: 9px 12px; display: none; }
 
   /* ── APP ── */
-  #app { flex: 1; display: none; flex-direction: column; overflow: hidden; height: 100%; }
+  #app { flex: 1; display: none; flex-direction: column; overflow: hidden; }
 
-  .header {
-    padding: 0 1.25rem; height: 54px; background: var(--navy);
-    display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
-  }
+  .header { height: 52px; background: var(--navy); display: flex; align-items: center; justify-content: space-between; padding: 0 1.25rem; flex-shrink: 0; }
   .header-left { display: flex; align-items: center; gap: 10px; }
-  .header-icon { width: 30px; height: 30px; background: rgba(255,255,255,0.15); border-radius: 7px; display: flex; align-items: center; justify-content: center; }
-  .header-icon svg { width: 17px; height: 17px; fill: none; stroke: #fff; stroke-width: 2.2; stroke-linecap: round; }
+  .header-icon { width: 28px; height: 28px; background: rgba(255,255,255,0.15); border-radius: 7px; display: flex; align-items: center; justify-content: center; }
+  .header-icon svg { width: 16px; height: 16px; fill: none; stroke: #fff; stroke-width: 2.2; stroke-linecap: round; }
   .header-title { font-size: 15px; font-weight: 700; color: #fff; }
-  .header-sep { width: 1px; height: 18px; background: rgba(255,255,255,0.2); margin: 0 4px; }
-  .header-plan { font-size: 12px; color: var(--blue4); font-weight: 500; }
+  .header-plan { font-size: 12px; color: var(--blue4); padding: 3px 10px; background: rgba(255,255,255,0.1); border-radius: 20px; cursor: pointer; transition: background .12s; }
+  .header-plan:hover { background: rgba(255,255,255,0.2); }
   .header-right { display: flex; align-items: center; gap: 8px; }
   .header-user { font-size: 12px; color: var(--blue4); }
   .btn-ghost { padding: 5px 11px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; font-size: 12px; color: #fff; cursor: pointer; font-family: inherit; transition: background .12s; }
   .btn-ghost:hover { background: rgba(255,255,255,0.2); }
 
-  .chat-area {
-    flex: 1; overflow-y: auto; padding: 1.5rem 1rem;
-    display: flex; flex-direction: column; gap: 1.25rem;
-    background: var(--bg);
-  }
-  .chat-area::-webkit-scrollbar { width: 4px; }
-  .chat-area::-webkit-scrollbar-thumb { background: var(--blue4); border-radius: 2px; }
+  /* ── SPLIT LAYOUT ── */
+  .split { flex: 1; display: flex; overflow: hidden; }
 
-  .msg { display: flex; gap: 10px; max-width: 760px; margin: 0 auto; width: 100%; }
+  /* ── CHAT PANEL ── */
+  .chat-panel { width: 420px; min-width: 320px; flex-shrink: 0; display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--white); }
+  .chat-messages { flex: 1; overflow-y: auto; padding: 1.25rem 1rem; display: flex; flex-direction: column; gap: 1rem; background: var(--bg); }
+  .chat-messages::-webkit-scrollbar { width: 3px; }
+  .chat-messages::-webkit-scrollbar-thumb { background: var(--blue4); border-radius: 2px; }
+
+  .msg { display: flex; gap: 8px; }
   .msg.user { flex-direction: row-reverse; }
-  .avatar { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; margin-top: 2px; }
+  .avatar { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; margin-top: 2px; }
   .avatar.bot { background: var(--navy); color: #fff; }
   .avatar.user { background: var(--blue3); color: #fff; }
-  .bubble { padding: 11px 15px; border-radius: 14px; font-size: 14px; line-height: 1.65; max-width: calc(100% - 44px); }
-  .msg.bot .bubble { background: var(--white); border: 1px solid var(--border); border-top-left-radius: 4px; box-shadow: 0 1px 4px rgba(0,64,113,0.06); }
-  .msg.user .bubble { background: var(--user-bubble); border: 1px solid rgba(0,95,162,0.2); border-top-right-radius: 4px; }
+  .bubble { padding: 9px 13px; border-radius: 12px; font-size: 13px; line-height: 1.65; max-width: calc(100% - 40px); word-break: break-word; overflow-wrap: anywhere; }
+  .msg.bot .bubble { background: var(--white); border: 1px solid var(--border); border-top-left-radius: 3px; box-shadow: 0 1px 3px rgba(0,64,113,0.06); }
+  .msg.user .bubble { background: var(--user-bubble); border: 1px solid rgba(0,95,162,0.2); border-top-right-radius: 3px; }
   .bubble strong { color: var(--navy); font-weight: 600; }
   .bubble em { color: var(--text2); font-style: italic; }
-  .bubble code { background: var(--surface2); border-radius: 4px; padding: 1px 6px; font-size: 12px; font-family: monospace; color: var(--navy1); }
+  .bubble code { background: var(--surface2); border-radius: 4px; padding: 1px 6px; font-size: 12px; font-family: monospace; }
+
+  /* Plan picker chips in chat */
+  .plan-chips { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+  .plan-chip { padding: 8px 12px; background: var(--surface2); border: 1.5px solid var(--border2); border-radius: 8px; cursor: pointer; transition: all .12s; display: flex; justify-content: space-between; align-items: center; }
+  .plan-chip:hover { border-color: var(--web); background: var(--user-bubble); }
+  .plan-chip-name { font-size: 13px; font-weight: 600; color: var(--navy); }
+  .plan-chip-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .plan-chip-arrow { color: var(--blue3); font-size: 16px; }
 
   .typing { display: flex; gap: 4px; align-items: center; }
-  .typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--blue3); animation: bounce .9s infinite; }
+  .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--blue3); animation: bounce .9s infinite; }
   .typing span:nth-child(2) { animation-delay: .15s; }
   .typing span:nth-child(3) { animation-delay: .3s; }
   @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
 
-  .welcome { text-align: center; padding: 3rem 1rem; color: var(--text2); max-width: 760px; margin: 0 auto; width: 100%; }
-  .welcome-icon { width: 60px; height: 60px; background: rgba(0,95,162,0.1); border: 2px solid rgba(0,95,162,0.2); border-radius: 18px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; }
-  .welcome-icon svg { width: 30px; height: 30px; fill: none; stroke: var(--web); stroke-width: 1.8; stroke-linecap: round; }
-  .welcome-title { font-size: 20px; font-weight: 700; color: var(--navy); margin-bottom: 8px; }
-  .welcome-sub { font-size: 13px; line-height: 1.7; max-width: 340px; margin: 0 auto; }
+  .suggestions { display: flex; flex-wrap: wrap; gap: 5px; padding: 8px 10px; border-top: 1px solid var(--border); background: var(--white); flex-shrink: 0; }
+  .sug { padding: 5px 11px; background: var(--bg); border: 1px solid var(--border2); border-radius: 20px; font-size: 12px; color: var(--navy1); cursor: pointer; font-family: inherit; transition: all .12s; white-space: nowrap; font-weight: 500; }
+  .sug:hover { background: var(--user-bubble); border-color: var(--web); }
 
-  .suggestions { display: flex; flex-wrap: wrap; gap: 6px; max-width: 760px; margin: 0 auto; width: 100%; padding: 0 40px; }
-  .sug { padding: 6px 13px; background: var(--white); border: 1.5px solid var(--border2); border-radius: 20px; font-size: 12px; color: var(--navy1); cursor: pointer; font-family: inherit; transition: all .12s; white-space: nowrap; font-weight: 500; }
-  .sug:hover { background: var(--user-bubble); border-color: var(--web); color: var(--web); }
-
-  .input-area { padding: .75rem 1rem 1rem; border-top: 1px solid var(--border); background: var(--white); flex-shrink: 0; }
-  .input-wrap { max-width: 760px; margin: 0 auto; display: flex; gap: 8px; align-items: flex-end; background: var(--bg); border: 1.5px solid var(--border2); border-radius: 14px; padding: 8px 8px 8px 14px; transition: border-color .15s; }
+  .input-area { padding: 10px; border-top: 1px solid var(--border); background: var(--white); flex-shrink: 0; }
+  .input-wrap { display: flex; gap: 6px; align-items: flex-end; background: var(--bg); border: 1.5px solid var(--border2); border-radius: 12px; padding: 7px 7px 7px 12px; transition: border-color .15s; }
   .input-wrap:focus-within { border-color: var(--web); background: var(--white); }
-  #chat-input { flex: 1; background: transparent; border: none; outline: none; font-size: 14px; color: var(--text); font-family: inherit; resize: none; max-height: 120px; line-height: 1.5; min-height: 22px; }
+  #chat-input { flex: 1; background: transparent; border: none; outline: none; font-size: 13px; color: var(--text); font-family: inherit; resize: none; max-height: 100px; line-height: 1.5; min-height: 20px; }
   #chat-input::placeholder { color: var(--text3); }
-  .send-btn { width: 34px; height: 34px; border-radius: 8px; background: var(--navy); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: background .12s; }
+  .send-btn { width: 32px; height: 32px; border-radius: 8px; background: var(--navy); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: background .12s; }
   .send-btn:hover { background: var(--navy1); }
   .send-btn:disabled { opacity: .4; cursor: not-allowed; }
-  .send-btn svg { width: 15px; height: 15px; fill: none; stroke: #fff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .send-btn svg { width: 14px; height: 14px; fill: none; stroke: #fff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 
-  @media (max-width: 600px) {
-    .header-user, .header-sep, .header-plan { display: none; }
-    .suggestions { padding: 0 40px; }
+  /* ── TASK PANEL ── */
+  .task-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--white); }
+  .task-panel-header { padding: 0 1.25rem; height: 48px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--surface2); }
+  .task-panel-title { font-size: 14px; font-weight: 600; color: var(--navy); }
+  .task-panel-count { font-size: 12px; color: var(--text3); }
+  .task-filters { display: flex; gap: 5px; padding: 8px 1rem; border-bottom: 1px solid var(--border); flex-shrink: 0; flex-wrap: wrap; background: var(--white); }
+  .filter-btn { padding: 4px 11px; border-radius: 20px; font-size: 12px; border: 1px solid var(--border2); background: transparent; color: var(--text2); cursor: pointer; font-family: inherit; transition: all .12s; font-weight: 500; }
+  .filter-btn.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .filter-btn:hover:not(.active) { background: var(--user-bubble); border-color: var(--web); color: var(--navy); }
+
+  .task-list { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 6px; }
+  .task-list::-webkit-scrollbar { width: 3px; }
+  .task-list::-webkit-scrollbar-thumb { background: var(--blue4); border-radius: 2px; }
+
+  .bucket-group { margin-bottom: 4px; }
+  .bucket-label { font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; padding: 4px 0 6px; }
+  .task-item { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; display: flex; align-items: flex-start; gap: 10px; transition: border-color .12s; }
+  .task-item:hover { border-color: var(--border2); }
+  .task-check { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--text3); flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .15s; }
+  .task-check:hover { border-color: var(--web); }
+  .task-check.done { background: var(--web); border-color: var(--web); }
+  .task-check.done::after { content: ''; width: 6px; height: 4px; border-left: 1.5px solid #fff; border-bottom: 1.5px solid #fff; transform: rotate(-45deg) translate(1px,-1px); display: block; }
+  .task-info { flex: 1; min-width: 0; }
+  .task-title { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .task-title.done { text-decoration: line-through; opacity: .5; }
+  .task-tags { display: flex; gap: 5px; margin-top: 4px; flex-wrap: wrap; }
+  .task-tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: var(--surface2); color: var(--text3); }
+  .task-tag.urgent { background: rgba(245,128,37,0.1); color: #a0320a; }
+  .task-tag.important { background: rgba(0,84,142,0.08); color: var(--navy1); }
+  .task-tag.overdue { background: rgba(245,128,37,0.12); color: #a0320a; font-weight: 600; }
+
+  .empty-state { text-align: center; padding: 3rem 1rem; color: var(--text3); font-size: 13px; }
+  .no-plan-state { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 8px; color: var(--text3); font-size: 13px; padding: 2rem; text-align: center; }
+  .no-plan-state strong { color: var(--navy); font-size: 15px; }
+
+  @media (max-width: 700px) {
+    .chat-panel { width: 100%; border-right: none; }
+    .task-panel { display: none; }
   }
 </style>
 </head>
@@ -189,10 +159,9 @@
     <div class="auth-tagline">Manage your Microsoft Planner tasks through natural conversation, powered by AI.</div>
     <div class="auth-divider"></div>
     <div>
-      <div style="font-size:11px;font-weight:700;color:#00548e;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Azure OpenAI Key</div>
-      <input type="password" id="az-key-input" placeholder="Paste your Azure OpenAI key…" autocomplete="off"
-        style="width:100%;padding:10px 12px;background:#f4f5f6;border:1.5px solid rgba(0,64,113,0.2);border-radius:8px;font-size:13px;color:#1a2a3a;font-family:inherit;" />
-      <div style="font-size:12px;color:#939598;margin-top:6px;line-height:1.5;">Ask your team admin for the key. It's stored only in your browser session.</div>
+      <div class="field-label">Azure OpenAI Key</div>
+      <input type="password" class="field-input" id="az-key-input" placeholder="Paste your Azure OpenAI key…" autocomplete="off" />
+      <div class="field-hint">Ask your team admin for the key. Stored only in your browser session.</div>
     </div>
     <button class="btn-primary" id="signin-btn" onclick="signIn()">
       <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
@@ -207,34 +176,13 @@
   </div>
 </div>
 
-<!-- PLAN PICKER -->
-<div id="plan-screen">
-  <div class="plan-card">
-    <div class="plan-card-logo">
-      <div class="plan-card-logo-icon"><svg viewBox="0 0 22 22"><path d="M3 5h16M3 11h10M3 17h13"/></svg></div>
-      <span class="plan-card-title">PlannerBot</span>
-    </div>
-    <div class="plan-user-line" id="plan-user-line"></div>
-    <div class="plan-section-label">Recent plans</div>
-    <div class="plan-list" id="recent-plan-list"></div>
-    <div class="plan-divider"></div>
-    <div class="plan-section-label">All plans</div>
-    <div class="plan-search-wrap">
-      <svg class="plan-search-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4"/><path d="m10.5 10.5 3 3"/></svg>
-      <input type="text" id="plan-search" placeholder="Search plans…" oninput="filterPlans(this.value)" />
-    </div>
-    <div class="plan-all-list" id="all-plan-list"></div>
-  </div>
-</div>
-
 <!-- APP -->
 <div id="app">
   <div class="header">
     <div class="header-left">
       <div class="header-icon"><svg viewBox="0 0 17 17"><path d="M2 4h13M2 8.5h9M2 13h11"/></svg></div>
       <span class="header-title">PlannerBot</span>
-      <div class="header-sep"></div>
-      <span class="header-plan" id="header-plan"></span>
+      <span class="header-plan" id="header-plan" onclick="switchPlan()" title="Click to switch plan"></span>
     </div>
     <div class="header-right">
       <span class="header-user" id="header-user"></span>
@@ -242,32 +190,46 @@
     </div>
   </div>
 
-  <div class="chat-area" id="chat-area">
-    <div class="welcome" id="welcome">
-      <div class="welcome-icon">
-        <svg viewBox="0 0 30 30"><path d="M5 7h20M5 15h13M5 23h16"/><circle cx="23" cy="23" r="5"/><path d="M21 23l1.5 1.5L25.5 21"/></svg>
+  <div class="split">
+    <!-- CHAT -->
+    <div class="chat-panel">
+      <div class="chat-messages" id="chat-messages"></div>
+      <div class="suggestions" id="suggestions" style="display:none">
+        <button class="sug" onclick="useSug(this)">Show all tasks</button>
+        <button class="sug" onclick="useSug(this)">What's overdue?</button>
+        <button class="sug" onclick="useSug(this)">Show urgent tasks</button>
+        <button class="sug" onclick="useSug(this)">Create a task</button>
+        <button class="sug" onclick="useSug(this)">Switch plan</button>
       </div>
-      <div class="welcome-title">How can I help you today?</div>
-      <div class="welcome-sub">Ask about your tasks, paste a SharePoint document link to create tasks from it, or ask me to create, edit, complete or delete tasks.</div>
+      <div class="input-area">
+        <div class="input-wrap">
+          <textarea id="chat-input" placeholder="Ask about your tasks…" rows="1"
+            onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+          <button class="send-btn" id="send-btn" onclick="sendMsg()">
+            <svg viewBox="0 0 14 14"><path d="M13 7H1M8 2l5 5-5 5"/></svg>
+          </button>
+        </div>
+      </div>
     </div>
-  </div>
 
-  <div class="suggestions" id="suggestions">
-    <button class="sug" onclick="useSug(this)">Show all tasks</button>
-    <button class="sug" onclick="useSug(this)">What's overdue?</button>
-    <button class="sug" onclick="useSug(this)">Show urgent tasks</button>
-    <button class="sug" onclick="useSug(this)">Create tasks from a document</button>
-    <button class="sug" onclick="useSug(this)">Paste a SharePoint link to read a document</button>
-    <button class="sug" onclick="useSug(this)">What did I complete recently?</button>
-  </div>
-
-  <div class="input-area">
-    <div class="input-wrap">
-      <textarea id="chat-input" placeholder="Ask about your tasks or paste a document…" rows="1"
-        onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
-      <button class="send-btn" id="send-btn" onclick="sendMsg()">
-        <svg viewBox="0 0 16 16"><path d="M14 8H2M9 3l5 5-5 5"/></svg>
-      </button>
+    <!-- TASKS -->
+    <div class="task-panel">
+      <div class="task-panel-header">
+        <span class="task-panel-title" id="task-panel-title">Tasks</span>
+        <span class="task-panel-count" id="task-panel-count"></span>
+      </div>
+      <div class="task-filters" id="task-filters" style="display:none">
+        <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+        <button class="filter-btn" onclick="setFilter('active',this)">Active</button>
+        <button class="filter-btn" onclick="setFilter('overdue',this)">Overdue</button>
+        <button class="filter-btn" onclick="setFilter('completed',this)">Completed</button>
+      </div>
+      <div class="task-list" id="task-list">
+        <div class="no-plan-state">
+          <strong>No plan selected</strong>
+          Ask PlannerBot which plan you'd like to work on.
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -279,10 +241,12 @@ const REDIRECT   = 'https://lorenzoambrosini-sectra.github.io/PlannerBot';
 const SCOPES     = ['Tasks.ReadWrite', 'Group.Read.All', 'User.Read', 'Files.Read.All', 'Sites.Read.All'];
 const GRAPH      = 'https://graph.microsoft.com/v1.0';
 const AZ_URL     = 'https://openai-poc-infra.openai.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2024-02-01';
-const AZ_KEY = sessionStorage.getItem('pb_azkey');
 
-let msalApp, accessToken, plans=[], currentPlan=null, history=[], busy=false;
+let msalApp, accessToken, AZ_KEY;
+let plans = [], currentPlan = null, history = [], busy = false;
+let currentFilter = 'all';
 
+// ── MSAL ──
 function initMsal() {
   if (typeof Msal === 'undefined') { setTimeout(initMsal, 100); return; }
   msalApp = new Msal.UserAgentApplication({
@@ -291,10 +255,10 @@ function initMsal() {
   });
   msalApp.handleRedirectCallback((err, resp) => {
     if (err) { showAuthError(err.errorMessage || err.message); return; }
-    if (resp && resp.accessToken) { accessToken = resp.accessToken; initApp(); }
+    if (resp && resp.accessToken) { accessToken = resp.accessToken; AZ_KEY = sessionStorage.getItem('pb_azkey'); initApp(); }
   });
   msalApp.acquireTokenSilent({ scopes: SCOPES, authority: AUTHORITY, redirectUri: REDIRECT })
-    .then(r => { accessToken = r.accessToken; if (sessionStorage.getItem('pb_azkey')) initApp(); })
+    .then(r => { accessToken = r.accessToken; AZ_KEY = sessionStorage.getItem('pb_azkey'); if (AZ_KEY) initApp(); })
     .catch(() => {});
 }
 window.addEventListener('DOMContentLoaded', initMsal);
@@ -309,10 +273,8 @@ function signIn() {
 }
 function signOut() { sessionStorage.clear(); msalApp.logout(); }
 function showAuthError(msg) {
-  const el = document.getElementById('auth-error');
-  el.style.display = 'block'; el.textContent = msg;
-  const btn = document.getElementById('signin-btn');
-  btn.disabled = false;
+  const el = document.getElementById('auth-error'); el.style.display = 'block'; el.textContent = msg;
+  const btn = document.getElementById('signin-btn'); btn.disabled = false;
   btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 18 18" fill="none"><rect x="1" y="1" width="7.5" height="7.5" fill="white" fill-opacity="0.9"/><rect x="9.5" y="1" width="7.5" height="7.5" fill="white" fill-opacity="0.65"/><rect x="1" y="9.5" width="7.5" height="7.5" fill="white" fill-opacity="0.65"/><rect x="9.5" y="9.5" width="7.5" height="7.5" fill="white" fill-opacity="0.9"/></svg> Sign in with Microsoft`;
 }
 
@@ -321,87 +283,70 @@ async function initApp() {
     const me = await callGraph('/me');
     document.getElementById('header-user').textContent = me.displayName || me.mail;
     document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
     await loadPlans();
+    askWhichPlan();
   } catch(e) { showAuthError('Failed to load: ' + e.message); }
 }
 
 async function loadPlans() {
   const data = await callGraph('/me/planner/plans');
   plans = data.value || [];
-  if (!plans.length) return;
-
-  // Load task counts for each plan to determine "most used"
-  const planDetails = await Promise.all(plans.map(async p => {
+  await Promise.all(plans.map(async p => {
     try {
       const td = await callGraph(`/planner/plans/${p.id}/tasks`);
-      p.taskCount = (td.value || []).filter(t => t.percentComplete !== 100).length;
-    } catch(e) { p.taskCount = 0; }
-    return p;
+      p._tasks = td.value || [];
+      p._activeTasks = p._tasks.filter(t => t.percentComplete !== 100).length;
+    } catch(e) { p._tasks = []; p._activeTasks = 0; }
   }));
+}
 
-  // Sort by task count descending for "recent/active"
-  const sorted = [...planDetails].sort((a, b) => b.taskCount - a.taskCount);
-  const recent = sorted.slice(0, 3);
-
-  // Show plan picker
-  document.getElementById('plan-user-line').innerHTML =
-    `Welcome, <strong>${document.getElementById('header-user').textContent}</strong>. Which plan would you like to work on?`;
-
-  const recentList = document.getElementById('recent-plan-list');
-  recentList.innerHTML = '';
-  recent.forEach(p => {
-    const el = document.createElement('div');
-    el.className = 'plan-option';
-    el.innerHTML = `
-      <div class="plan-option-info">
-        <div class="plan-option-name">${p.title}</div>
-        <div class="plan-option-meta">${p.taskCount} active task${p.taskCount !== 1 ? 's' : ''}</div>
+function askWhichPlan() {
+  const sorted = [...plans].sort((a,b) => b._activeTasks - a._activeTasks).slice(0, 5);
+  const botMsg = document.createElement('div');
+  botMsg.className = 'msg bot';
+  const chips = sorted.map(p => `
+    <div class="plan-chip" onclick="selectPlan('${p.id}')">
+      <div>
+        <div class="plan-chip-name">${p.title}</div>
+        <div class="plan-chip-meta">${p._activeTasks} active task${p._activeTasks !== 1 ? 's' : ''}</div>
       </div>
-      <div class="plan-option-arrow">→</div>`;
-    el.onclick = () => selectPlan(p);
-    recentList.appendChild(el);
-  });
-
-  renderAllPlans(plans);
-  document.getElementById('plan-screen').classList.add('active');
+      <div class="plan-chip-arrow">→</div>
+    </div>`).join('');
+  botMsg.innerHTML = `<div class="avatar bot">PB</div><div class="bubble">Hi! Which plan would you like to work on?<div class="plan-chips">${chips}</div></div>`;
+  document.getElementById('chat-messages').appendChild(botMsg);
 }
 
-function renderAllPlans(list) {
-  const allList = document.getElementById('all-plan-list');
-  allList.innerHTML = '';
-  list.forEach(p => {
-    const el = document.createElement('div');
-    el.className = 'plan-small-option';
-    el.innerHTML = `<span>${p.title}</span><span class="plan-small-meta">${p.taskCount ?? 0} active</span>`;
-    el.onclick = () => selectPlan(p);
-    allList.appendChild(el);
-  });
-}
-
-function filterPlans(query) {
-  const filtered = plans.filter(p => p.title.toLowerCase().includes(query.toLowerCase()));
-  renderAllPlans(filtered);
-}
-
-async function selectPlan(plan) {
+async function selectPlan(planId) {
+  const plan = plans.find(p => p.id === planId);
+  if (!plan) return;
   currentPlan = plan;
-  document.getElementById('plan-screen').classList.remove('active');
-  document.getElementById('plan-screen').style.display = 'none';
-  document.getElementById('app').style.display = 'flex';
-  document.getElementById('header-plan').textContent = plan.title;
-  await refreshTasks();
+  document.getElementById('header-plan').textContent = '📋 ' + plan.title;
+
+  // Load buckets
+  const bd = await callGraph(`/planner/plans/${plan.id}/buckets`);
+  currentPlan._buckets = bd.value || [];
+
+  addMsg('user', plan.title);
+  addMsg('bot', `Great! I've loaded **${plan.title}**. You have **${plan._activeTasks}** active tasks. What would you like to do?`);
+
+  document.getElementById('suggestions').style.display = 'flex';
+  renderTasks();
 }
 
-async function refreshTasks() {
-  if (!currentPlan) return;
-  const [bd, td] = await Promise.all([
-    callGraph(`/planner/plans/${currentPlan.id}/buckets`),
-    callGraph(`/planner/plans/${currentPlan.id}/tasks`)
-  ]);
-  currentPlan.buckets = bd.value || [];
-  currentPlan.tasks = td.value || [];
+function switchPlan() {
+  if (!plans.length) return;
+  currentPlan = null;
+  document.getElementById('header-plan').textContent = '';
+  document.getElementById('suggestions').style.display = 'none';
+  document.getElementById('task-filters').style.display = 'none';
+  document.getElementById('task-panel-count').textContent = '';
+  document.getElementById('task-panel-title').textContent = 'Tasks';
+  document.getElementById('task-list').innerHTML = '<div class="no-plan-state"><strong>No plan selected</strong>Ask PlannerBot which plan you\'d like to work on.</div>';
+  askWhichPlan();
 }
 
+// ── GRAPH ──
 async function callGraph(path, method='GET', body=null, etag=null) {
   const h = { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' };
   if (etag) h['If-Match'] = etag;
@@ -410,17 +355,131 @@ async function callGraph(path, method='GET', body=null, etag=null) {
   if (r.status === 204) return {};
   return r.json();
 }
-
 async function getEtag(id) {
   const r = await fetch(`${GRAPH}/planner/tasks/${id}`, { headers: { 'Authorization': 'Bearer ' + accessToken } });
   return r.headers.get('ETag') || '*';
 }
+async function refreshTasks() {
+  if (!currentPlan) return;
+  const [bd, td] = await Promise.all([
+    callGraph(`/planner/plans/${currentPlan.id}/buckets`),
+    callGraph(`/planner/plans/${currentPlan.id}/tasks`)
+  ]);
+  currentPlan._buckets = bd.value || [];
+  currentPlan._tasks = td.value || [];
+  currentPlan._activeTasks = currentPlan._tasks.filter(t => t.percentComplete !== 100).length;
+  renderTasks();
+}
 
+// ── TASK PANEL ──
+function setFilter(f, el) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderTasks();
+}
+
+function renderTasks() {
+  if (!currentPlan) return;
+  const tasks = currentPlan._tasks || [];
+  const buckets = currentPlan._buckets || [];
+  const now = new Date();
+
+  document.getElementById('task-filters').style.display = 'flex';
+  document.getElementById('task-panel-title').textContent = currentPlan.title;
+
+  let filtered = tasks;
+  if (currentFilter === 'active') filtered = tasks.filter(t => t.percentComplete !== 100);
+  else if (currentFilter === 'completed') filtered = tasks.filter(t => t.percentComplete === 100);
+  else if (currentFilter === 'overdue') filtered = tasks.filter(t => t.dueDateTime && new Date(t.dueDateTime) < now && t.percentComplete !== 100);
+
+  document.getElementById('task-panel-count').textContent = `${filtered.length} task${filtered.length !== 1 ? 's' : ''}`;
+
+  const list = document.getElementById('task-list');
+  if (!filtered.length) { list.innerHTML = '<div class="empty-state">No tasks match this filter.</div>'; return; }
+
+  // Group by bucket
+  const byBucket = {};
+  filtered.forEach(t => {
+    const bid = t.bucketId || 'none';
+    if (!byBucket[bid]) byBucket[bid] = [];
+    byBucket[bid].push(t);
+  });
+
+  const pmap = {0:'urgent',1:'important',2:'important',3:'medium',4:'medium',5:'medium',6:'low',7:'low',8:'low',9:'low'};
+  list.innerHTML = '';
+
+  Object.entries(byBucket).forEach(([bid, btasks]) => {
+    const bucket = buckets.find(b => b.id === bid);
+    const group = document.createElement('div');
+    group.className = 'bucket-group';
+    group.innerHTML = `<div class="bucket-label">${bucket?.name || 'Other'}</div>`;
+    btasks.forEach(t => {
+      const done = t.percentComplete === 100;
+      const overdue = t.dueDateTime && new Date(t.dueDateTime) < now && !done;
+      const priority = pmap[t.priority] || 'medium';
+      const due = t.dueDateTime ? new Date(t.dueDateTime).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '';
+      const item = document.createElement('div');
+      item.className = 'task-item';
+      item.innerHTML = `
+        <div class="task-check${done?' done':''}" onclick="quickToggle('${t.id}')"></div>
+        <div class="task-info">
+          <div class="task-title${done?' done':''}">${t.title}</div>
+          <div class="task-tags">
+            ${priority !== 'medium' ? `<span class="task-tag ${priority}">${priority}</span>` : ''}
+            ${due ? `<span class="task-tag${overdue?' overdue':''}">${overdue?'⚠️ ':''} ${due}</span>` : ''}
+          </div>
+        </div>`;
+      group.appendChild(item);
+    });
+    list.appendChild(group);
+  });
+}
+
+async function quickToggle(taskId) {
+  const task = (currentPlan._tasks||[]).find(t => t.id === taskId);
+  if (!task) return;
+  const pct = task.percentComplete === 100 ? 0 : 100;
+  try {
+    const e = await getEtag(taskId);
+    await callGraph(`/planner/tasks/${taskId}`, 'PATCH', { percentComplete: pct }, e);
+    task.percentComplete = pct;
+    renderTasks();
+  } catch(e) { console.warn(e); }
+}
+
+// ── SHAREPOINT ──
+async function fetchSharePointDoc(url) {
+  const encoded = btoa(url).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const shareToken = 'u!' + encoded;
+  const shareItem = await callGraph(`/shares/${shareToken}/driveItem`);
+  if (!shareItem?.id) throw new Error('Could not resolve the shared link.');
+  const driveId = shareItem.parentReference?.driveId;
+  if (!driveId) throw new Error('Could not determine drive from shared link.');
+  const textResp = await fetch(`${GRAPH}/drives/${driveId}/items/${shareItem.id}/content?format=text`, {
+    headers: { 'Authorization': 'Bearer ' + accessToken }
+  });
+  if (textResp.ok) {
+    const text = await textResp.text();
+    return `File: ${shareItem.name}\n\n${text.slice(0, 15000)}`;
+  }
+  return `File: ${shareItem.name}\nLast modified: ${shareItem.lastModifiedDateTime}\n\n[Could not extract text automatically. Please paste the document content directly.]`;
+}
+
+function isSharePointUrl(text) {
+  return /https?:\/\/[a-z0-9-]+\.sharepoint\.com\S+/i.test(text);
+}
+function extractUrl(text) {
+  const m = text.match(/https?:\/\/\S+/);
+  return m ? m[0] : null;
+}
+
+// ── AI ──
 function buildSystem() {
   const now = new Date();
   const pmap = {0:'urgent',1:'important',2:'important',3:'medium',4:'medium',5:'medium',6:'low',7:'low',8:'low',9:'low'};
-  const tasks = currentPlan.tasks || [];
-  const buckets = currentPlan.buckets || [];
+  const tasks = currentPlan?._tasks || [];
+  const buckets = currentPlan?._buckets || [];
   const tlist = tasks.map(t => {
     const b = buckets.find(x => x.id === t.bucketId);
     const due = t.dueDateTime ? new Date(t.dueDateTime).toLocaleDateString('en-GB') : 'no due date';
@@ -429,19 +488,23 @@ function buildSystem() {
     return `ID:${t.id} | "${t.title}" | bucket:${b?.name||'none'} | priority:${pmap[t.priority]||'medium'} | status:${st} | due:${due}${ov?' [OVERDUE]':''}`;
   }).join('\n');
 
-  return `You are PlannerBot, an AI assistant for Microsoft Planner at Sectra. Help users manage tasks through natural conversation.
+  const planList = plans.map(p => `ID:${p.id} | "${p.title}" | ${p._activeTasks} active tasks`).join('\n');
+
+  return `You are PlannerBot, an AI assistant for Microsoft Planner at Sectra. Help users manage tasks conversationally.
 
 Today: ${now.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}.
-Current plan: "${currentPlan.title}" | ${tasks.length} tasks.
+${currentPlan ? `Current plan: "${currentPlan.title}" | ${tasks.length} tasks.` : 'No plan selected yet.'}
 
-TASKS:
-${tlist||'No tasks found.'}
+${currentPlan ? `TASKS:\n${tlist||'No tasks.'}\n\nBUCKETS: ${buckets.map(b=>`${b.name} (ID:${b.id})`).join(', ')||'None'}` : ''}
 
-BUCKETS: ${buckets.map(b=>`${b.name} (ID:${b.id})`).join(', ')||'None'}
+ALL PLANS:\n${planList}
 
-DOCUMENT-TO-TASKS: If the user pastes document text and asks to create tasks from it, analyse the content and extract actionable items, milestones, or deliverables. Create them with CREATE actions and summarise what you created.
+DOCUMENT-TO-TASKS: If the user pastes document text, extract actionable items and create tasks from it.
 
-ACTIONS — embed JSON in <action> tags in your response:
+SWITCH PLAN: If the user wants to switch plans, respond with:
+<action>{"type":"SWITCH_PLAN"}</action>
+
+TASK ACTIONS (only when a plan is selected):
 <action>{"type":"CREATE","title":"Task title","bucketId":"optional-id","priority":5,"dueDate":"YYYY-MM-DD"}</action>
 <action>{"type":"COMPLETE","taskId":"id"}</action>
 <action>{"type":"INCOMPLETE","taskId":"id"}</action>
@@ -449,57 +512,7 @@ ACTIONS — embed JSON in <action> tags in your response:
 <action>{"type":"EDIT","taskId":"id","title":"New title","priority":0,"dueDate":"YYYY-MM-DD"}</action>
 
 Priority: 0=urgent, 2=important, 5=medium, 9=low. Default bucket: ${buckets[0]?.id||''}.
-Be concise and professional. Confirm every action. Highlight overdue tasks. Don't list all tasks unless asked.`;
-}
-
-
-async function fetchSharePointDoc(url) {
-  // Microsoft Graph supports resolving any SharePoint sharing URL via
-  // the /shares endpoint using a base64-encoded version of the URL.
-  // This works for all link types: sharing links, direct URLs, etc.
-
-  // Encode the URL for the shares endpoint
-  const encoded = btoa(url).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-  const shareToken = 'u!' + encoded;
-
-  // Resolve the shared item
-  const shareItem = await callGraph(`/shares/${shareToken}/driveItem`);
-
-  if (!shareItem || !shareItem.id) {
-    throw new Error('Could not resolve the shared link. Make sure the link is valid and you have access.');
-  }
-
-  const driveId = shareItem.parentReference?.driveId;
-  if (!driveId) throw new Error('Could not determine drive from shared link.');
-
-  // Try plain text extraction
-  const textResp = await fetch(
-    `${GRAPH}/drives/${driveId}/items/${shareItem.id}/content?format=text`,
-    { headers: { 'Authorization': 'Bearer ' + accessToken } }
-  );
-
-  if (textResp.ok) {
-    const text = await textResp.text();
-    return `File: ${shareItem.name}
-
-${text.slice(0, 15000)}`;
-  }
-
-  // Fallback: file found but text extraction failed
-  return `File: ${shareItem.name}
-Last modified: ${shareItem.lastModifiedDateTime}
-
-[Word document found but text could not be extracted automatically. Please copy and paste the relevant content from the document directly into the chat.]`;
-}
-
-function isSharePointUrl(text) {
-  return /https?:\/\/[a-z0-9-]+\.sharepoint\.com\S+/i.test(text) ||
-         /https?:\/\/[a-z0-9-]+\.office\.com\S+/i.test(text);
-}
-
-function extractUrl(text) {
-  const match = text.match(/https?:\/\/\S+/);
-  return match ? match[0] : null;
+Be concise. Confirm every action. Highlight overdue tasks.`;
 }
 
 async function sendMsg() {
@@ -508,60 +521,55 @@ async function sendMsg() {
   const text = inp.value.trim();
   if (!text) return;
   inp.value = ''; inp.style.height = 'auto';
-  document.getElementById('welcome')?.remove();
-  document.getElementById('suggestions').style.display = 'none';
 
   addMsg('user', text);
   const typing = addTyping();
   busy = true; document.getElementById('send-btn').disabled = true;
 
   try {
-    let messageContent = text;
+    let content = text;
 
-    // If message contains a SharePoint URL, fetch the document
+    // SharePoint doc fetch
     if (isSharePointUrl(text)) {
       const spUrl = extractUrl(text);
       if (spUrl) {
         try {
-          addMsg('bot', '📄 Fetching document from SharePoint…');
           const docContent = await fetchSharePointDoc(spUrl);
-          if (docContent) {
-            const userInstruction = text.replace(spUrl, '').trim() || 'Create tasks from this document';
-            messageContent = `${userInstruction}\n\n--- DOCUMENT CONTENT ---\n${docContent}\n--- END OF DOCUMENT ---`;
-          }
-        } catch(docErr) {
+          const instruction = text.replace(spUrl,'').trim() || 'Analyse this document and create tasks from it';
+          content = `${instruction}\n\n--- DOCUMENT ---\n${docContent}\n--- END ---`;
+        } catch(e) {
           typing.remove();
-          addMsg('bot', '⚠️ Could not read the document: ' + docErr.message + '\n\nMake sure you are signed in with an account that has access to this file, and that the URL points directly to the file (not a folder).');
+          addMsg('bot', `⚠️ Could not read the document: ${e.message}`);
           busy=false; document.getElementById('send-btn').disabled=false;
           return;
         }
-        // Remove the "fetching" message
-        const msgs = document.getElementById('chat-area').querySelectorAll('.msg.bot');
-        msgs[msgs.length-1].remove();
       }
     }
 
-    history.push({ role:'user', content:messageContent });
+    history.push({ role:'user', content });
     const res = await fetch(AZ_URL, {
-      method: 'POST',
-      headers: { 'Content-Type':'application/json', 'api-key': AZ_KEY },
-      body: JSON.stringify({
-        messages: [{ role:'system', content:buildSystem() }, ...history],
-        max_tokens: 1500, temperature: 0.3
-      })
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'api-key': AZ_KEY },
+      body: JSON.stringify({ messages:[{role:'system',content:buildSystem()},...history], max_tokens:1500, temperature:0.3 })
     });
-    if (!res.ok) { const e=await res.json(); throw new Error(e.error?.message||'Azure OpenAI error '+res.status); }
+    if (!res.ok) { const e=await res.json(); throw new Error(e.error?.message||'Azure OpenAI error'); }
     const data = await res.json();
     const reply = data.choices[0].message.content;
-    history.push({ role:'assistant', content:reply });
+    history.push({role:'assistant',content:reply});
 
     const actions = [...reply.matchAll(/<action>([\s\S]*?)<\/action>/g)];
     const clean = reply.replace(/<action>[\s\S]*?<\/action>/g,'').trim();
 
+    let needsRefresh = false;
     for (const a of actions) {
-      try { await doAction(JSON.parse(a[1])); } catch(e) { console.warn('Action failed:',e); }
+      try {
+        const action = JSON.parse(a[1]);
+        if (action.type === 'SWITCH_PLAN') { typing.remove(); switchPlan(); busy=false; document.getElementById('send-btn').disabled=false; return; }
+        await doAction(action);
+        needsRefresh = true;
+      } catch(e) { console.warn(e); }
     }
-    if (actions.length) await refreshTasks();
+    if (needsRefresh) await refreshTasks();
 
     typing.remove();
     addMsg('bot', clean);
@@ -594,8 +602,9 @@ async function doAction(a) {
   }
 }
 
+// ── CHAT UI ──
 function addMsg(role, text) {
-  const area=document.getElementById('chat-area');
+  const area=document.getElementById('chat-messages');
   const d=document.createElement('div'); d.className=`msg ${role}`;
   const init=role==='bot'?'PB':(document.getElementById('header-user').textContent.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()||'ME');
   const html=role==='bot'
@@ -604,18 +613,19 @@ function addMsg(role, text) {
   d.innerHTML=`<div class="avatar ${role}">${init}</div><div class="bubble">${html}</div>`;
   area.appendChild(d); area.scrollTop=area.scrollHeight; return d;
 }
-
 function addTyping() {
-  const area=document.getElementById('chat-area');
+  const area=document.getElementById('chat-messages');
   const d=document.createElement('div'); d.className='msg bot';
   d.innerHTML=`<div class="avatar bot">PB</div><div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>`;
   area.appendChild(d); area.scrollTop=area.scrollHeight; return d;
 }
-
 function esc(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function useSug(btn){document.getElementById('chat-input').value=btn.textContent;sendMsg();}
+function useSug(btn){
+  if (btn.textContent==='Switch plan') { switchPlan(); return; }
+  document.getElementById('chat-input').value=btn.textContent; sendMsg();
+}
 function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();}}
-function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px';}
+function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,100)+'px';}
 </script>
 </body>
 </html>
