@@ -309,33 +309,101 @@ async function loadPlans() {
 }
 
 function askWhichPlan() {
-  const sorted = [...plans].sort((a,b) => b._activeTasks - a._activeTasks).slice(0, 5);
+  let usage = {};
+  try { usage = JSON.parse(localStorage.getItem('pb_plan_usage') || '{}'); } catch(e) {}
+  const sorted = [...plans].sort(function(a,b) {
+    const ua = usage[a.id] || 0;
+    const ub = usage[b.id] || 0;
+    if (ub !== ua) return ub - ua;
+    return b._activeTasks - a._activeTasks;
+  });
+  const top5 = sorted.slice(0, 5);
+  const rest = sorted.slice(5);
+  const msgId = 'plan-picker-' + Date.now();
   const botMsg = document.createElement('div');
   botMsg.className = 'msg bot';
-  const chips = sorted.map(p => `
-    <div class="plan-chip" onclick="selectPlan('${p.id}')">
-      <div>
-        <div class="plan-chip-name">${p.title}</div>
-        <div class="plan-chip-meta">${p._activeTasks} active task${p._activeTasks !== 1 ? 's' : ''}</div>
-      </div>
-      <div class="plan-chip-arrow">→</div>
-    </div>`).join('');
-  botMsg.innerHTML = `<div class="avatar bot">PB</div><div class="bubble">Hi! Which plan would you like to work on?<div class="plan-chips">${chips}</div></div>`;
+  botMsg.id = msgId;
+  botMsg._allPlans = sorted;
+
+  function chipHtml(p) {
+    return '<div class="plan-chip" onclick="selectPlan('' + p.id + '')">' +
+      '<div><div class="plan-chip-name">' + p.title + '</div>' +
+      '<div class="plan-chip-meta">' + p._activeTasks + ' active task' + (p._activeTasks !== 1 ? 's' : '') + '</div></div>' +
+      '<div class="plan-chip-arrow">→</div></div>';
+  }
+
+  const otherBtn = rest.length > 0
+    ? '<div class="plan-chip" id="show-more-' + msgId + '" onclick="showMorePlans('' + msgId + '')" style="justify-content:center;color:var(--web);font-weight:600;font-size:13px;">+ ' + rest.length + ' more plans</div>'
+    : '';
+
+  botMsg.innerHTML = '<div class="avatar bot">PB</div><div class="bubble">' +
+    'Hi! Which plan would you like to work on?' +
+    '<div class="plan-chips" id="chips-' + msgId + '">' +
+    top5.map(chipHtml).join('') + otherBtn +
+    '</div></div>';
+
   document.getElementById('chat-messages').appendChild(botMsg);
+  document.getElementById('chat-messages').scrollTop = 999999;
+}
+
+function showMorePlans(msgId) {
+  const msg = document.getElementById(msgId);
+  if (!msg) return;
+  const sorted = msg._allPlans;
+  const chipsEl = document.getElementById('chips-' + msgId);
+  if (!chipsEl) return;
+
+  // Replace with search + all plans
+  chipsEl.innerHTML =
+    '<input type="text" placeholder="Search plans…" ' +
+    'style="width:100%;margin:4px 0 8px;padding:7px 10px;border:1px solid var(--border2);border-radius:7px;font-size:12px;font-family:inherit;background:var(--bg);color:var(--text);" ' +
+    'oninput="filterPlanChips('' + msgId + '', this.value)" />' +
+    '<div id="chips-inner-' + msgId + '">' +
+    sorted.map(function(p) {
+      return '<div class="plan-chip" onclick="selectPlan('' + p.id + '')">' +
+        '<div><div class="plan-chip-name">' + p.title + '</div>' +
+        '<div class="plan-chip-meta">' + p._activeTasks + ' active task' + (p._activeTasks !== 1 ? 's' : '') + '</div></div>' +
+        '<div class="plan-chip-arrow">→</div></div>';
+    }).join('') + '</div>';
+  document.getElementById('chat-messages').scrollTop = 999999;
+}
+
+function filterPlanChips(msgId, query) {
+  const msg = document.getElementById(msgId);
+  if (!msg) return;
+  const filtered = msg._allPlans.filter(function(p) {
+    return p.title.toLowerCase().includes(query.toLowerCase());
+  });
+  const inner = document.getElementById('chips-inner-' + msgId);
+  if (!inner) return;
+  inner.innerHTML = filtered.map(function(p) {
+    return '<div class="plan-chip" onclick="selectPlan('' + p.id + '')">' +
+      '<div><div class="plan-chip-name">' + p.title + '</div>' +
+      '<div class="plan-chip-meta">' + p._activeTasks + ' active task' + (p._activeTasks !== 1 ? 's' : '') + '</div></div>' +
+      '<div class="plan-chip-arrow">→</div></div>';
+  }).join('');
 }
 
 async function selectPlan(planId) {
-  const plan = plans.find(p => p.id === planId);
+  const plan = plans.find(function(p) { return p.id === planId; });
   if (!plan) return;
   currentPlan = plan;
   document.getElementById('header-plan').textContent = '📋 ' + plan.title;
 
+  // Record usage in localStorage
+  try {
+    const key = 'pb_plan_usage';
+    const usage = JSON.parse(localStorage.getItem(key) || '{}');
+    usage[planId] = (usage[planId] || 0) + 1;
+    localStorage.setItem(key, JSON.stringify(usage));
+  } catch(e) {}
+
   // Load buckets
-  const bd = await callGraph(`/planner/plans/${plan.id}/buckets`);
+  const bd = await callGraph('/planner/plans/' + plan.id + '/buckets');
   currentPlan._buckets = bd.value || [];
 
   addMsg('user', plan.title);
-  addMsg('bot', `Great! I've loaded **${plan.title}**. You have **${plan._activeTasks}** active tasks. What would you like to do?`);
+  addMsg('bot', 'Great! I've loaded **' + plan.title + '**. You have **' + plan._activeTasks + '** active tasks. What would you like to do?');
 
   document.getElementById('suggestions').style.display = 'flex';
   renderTasks();
