@@ -453,13 +453,13 @@ async function fetchSharePointDoc(url) {
   const encoded = btoa(url).replace(/=/g,'').replace(/[+]/g,'-').replace(/[/]/g,'_');
   const shareToken = 'u!' + encoded;
 
-  const shareItem = await callGraph(`/shares/${shareToken}/driveItem`);
+  const shareItem = await callGraph('/shares/' + shareToken + '/driveItem');
   if (!shareItem || !shareItem.id) throw new Error('Could not resolve the shared link.');
   const driveId = shareItem.parentReference && shareItem.parentReference.driveId;
   if (!driveId) throw new Error('Could not determine drive.');
 
   // Method 1: format=text
-  const textResp = await fetch(`${GRAPH}/drives/${driveId}/items/${shareItem.id}/content?format=text`, {
+  const textResp = await fetch(GRAPH + '/drives/' + driveId + '/items/' + shareItem.id + '/content?format=text', {
     headers: { 'Authorization': 'Bearer ' + accessToken }
   });
   if (textResp.ok) {
@@ -469,27 +469,39 @@ async function fetchSharePointDoc(url) {
     }
   }
 
-  // Method 2: download and unzip docx to extract word/document.xml
-  const dlResp = await fetch(`${GRAPH}/drives/${driveId}/items/${shareItem.id}/content`, {
+  // Method 2: download docx and unzip
+  const dlResp = await fetch(GRAPH + '/drives/' + driveId + '/items/' + shareItem.id + '/content', {
     headers: { 'Authorization': 'Bearer ' + accessToken }
   });
   if (!dlResp.ok) throw new Error('Could not download file.');
 
   const arrayBuffer = await dlResp.arrayBuffer();
-
-  // Use DecompressionStream to read the ZIP entries
-  // docx = ZIP file, we need word/document.xml inside it
-  // Parse ZIP manually: find local file headers (PK\x03\x04)
   const bytes = new Uint8Array(arrayBuffer);
-
-  // Find all ZIP local file entries
   const decoder = new TextDecoder('utf-8', { fatal: false });
-  let xmlContent = '';
+
+  // Find word/document.xml in the ZIP
+  async function decompress(data) {
+    const ds = new DecompressionStream('deflate-raw');
+    const writer = ds.writable.getWriter();
+    const reader = ds.readable.getReader();
+    writer.write(data);
+    writer.close();
+    const chunks = [];
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (value) chunks.push(value);
+    }
+    const total = chunks.reduce(function(a, c) { return a + c.length; }, 0);
+    const merged = new Uint8Array(total);
+    let offset = 0;
+    chunks.forEach(function(c) { merged.set(c, offset); offset += c.length; });
+    return decoder.decode(merged);
+  }
 
   let i = 0;
-  while (i < bytes.length - 4) {
-    // ZIP local file header signature: 50 4B 03 04
-    if (bytes[i]===0x50 && bytes[i+1]===0x4B && bytes[i+2]===0x03 && bytes[i+3]===0x04) {
+  while (i < bytes.length - 30) {
+    if (bytes[i] === 0x50 && bytes[i+1] === 0x4B && bytes[i+2] === 0x03 && bytes[i+3] === 0x04) {
       const compression = bytes[i+8] | (bytes[i+9] << 8);
       const compressedSize = bytes[i+18] | (bytes[i+19]<<8) | (bytes[i+20]<<16) | (bytes[i+21]<<24);
       const filenameLen = bytes[i+26] | (bytes[i+27] << 8);
@@ -499,56 +511,30 @@ async function fetchSharePointDoc(url) {
 
       if (filename === 'word/document.xml') {
         const compressedData = bytes.slice(dataStart, dataStart + compressedSize);
+        let xml = '';
         if (compression === 0) {
-          // Stored (no compression)
-          xmlContent = decoder.decode(compressedData);
-        } else if (compression === 8) {
-          // Deflate — use DecompressionStream
-          try {
-            const ds = new DecompressionStream('deflate-raw');
-            const writer = ds.writable.getWriter();
-            const reader = ds.readable.getReader();
-            writer.write(compressedData);
-            writer.close();
-            const chunks = [];
-            let done = false;
-            while (!done) {
-              const { value, done: d } = await reader.read();
-              if (value) chunks.push(value);
-              done = d;
-            }
-            const total = chunks.reduce((a,c) => a+c.length, 0);
-            const merged = new Uint8Array(total);
-            let offset = 0;
-            chunks.forEach(c => { merged.set(c, offset); offset += c.length; });
-            xmlContent = decoder.decode(merged);
-          } catch(e) { console.warn('Decompress failed:', e); }
+          xml = decoder.decode(compressedData);
+        } else {
+          xml = await decompress(compressedData);
         }
-        break;
+        const matches = xml.match(/<w:t[^>]*>([^<]*)<\/w:t>/g);
+        if (matches && matches.length > 0) {
+          const text = matches
+            .map(function(m) { return m.replace(/<[^>]+>/g, ''); })
+            .filter(function(t) { return t.trim().length > 0; })
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          return 'File: ' + shareItem.name + '\n\n' + text.slice(0, 15000);
+        }
       }
-      i = dataStart + compressedSize;
+      i = dataStart + Math.max(compressedSize, 1);
     } else {
       i++;
     }
   }
 
-  if (xmlContent) {
-    // Extract text from <w:t> tags
-    const matches = xmlContent.match(/<w:t[^>]*>([^<]*)<\/w:t>/g);
-    if (matches && matches.length > 5) {
-      const extracted = matches
-        .map(function(m) { return m.replace(/<[^>]+>/g, ''); })
-        .filter(function(t) { return t.trim().length > 0; })
-        .join(' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-      if (extracted.length > 50) {
-        return 'File: ' + shareItem.name + '\n\n' + extracted.slice(0, 15000);
-      }
-    }
-  }
-
-  throw new Error('Could not extract text from the document. The file may be encrypted or password protected. Please paste the content directly.');
+  throw new Error('Could not extract text. Please paste the document content directly.');
 }
 
 function isSharePointUrl(text) {
