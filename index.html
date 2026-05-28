@@ -837,7 +837,7 @@ async function sendMsg() {
 
     typing.remove();
     // Show confirm buttons if the response appears to be asking for confirmation
-    const isConfirmQ = /shall i|go ahead|are you sure|want me to|should i|confirm|proceed|would you like|do you want|can i|may i|ready to|like me to/i.test(clean) && clean.includes('?');
+    const isConfirmQ = /are you sure|permanently delete|cannot be undone|irreversible|bulk delete/i.test(clean) && clean.includes('?');
     addMsg('bot', clean, isConfirmQ);
   } catch(e) {
     typing.remove();
