@@ -731,6 +731,8 @@ TASK ACTIONS (only when a plan is selected):
 <action>{"type":"DUPLICATE","taskId":"id","title":"Optional new title"}</action>
 <action>{"type":"CREATE_BUCKET","name":"Bucket name"}</action>
 You CAN create buckets. Always use CREATE_BUCKET when the user asks to create a bucket, column or category. Never say you cannot create buckets.
+<action>{"type":"FETCH_NOTES","taskId":"id"}</action>
+Use FETCH_NOTES when the user asks to read, show or summarise the notes of a specific task. The notes will be returned to you so you can answer.
 
 Priority: 0=urgent, 2=important, 5=medium, 9=low. Default bucket: ${buckets[0]?.id||''}.
 
@@ -949,6 +951,32 @@ async function doAction(a) {
         await callGraph('/planner/tasks/' + created.id + '/details', 'PATCH', { description: details.description }, detailEtag);
       } catch(e) { console.warn('Could not copy notes:', e); }
     }
+  } else if (a.type==='FETCH_NOTES') {
+    const dr = await fetch(GRAPH + '/planner/tasks/' + a.taskId + '/details', {
+      headers: { 'Authorization': 'Bearer ' + accessToken }
+    });
+    if (dr.ok) {
+      const details = await dr.json();
+      const notes = details.description || '(no notes)';
+      const task = (currentPlan._tasks||[]).find(function(t) { return t.id === a.taskId; });
+      const taskTitle = task ? task.title : a.taskId;
+      // Inject notes back into conversation so GPT can answer
+      history.push({ role: "user", content: "[SYSTEM: Notes for task \"" + taskTitle + "\": " + notes + ". Please summarise or answer the user's question about these notes.]" });
+      const res2 = await fetch(AZ_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'api-key': AZ_KEY },
+        body: JSON.stringify({ messages: [{ role: 'system', content: buildSystem() }, ...history], max_tokens: 1000, temperature: 0.3 })
+      });
+      if (res2.ok) {
+        const data2 = await res2.json();
+        const reply2 = data2.choices[0].message.content;
+        history.push({ role: 'assistant', content: reply2 });
+        // Display this follow-up reply
+        document.querySelector('.msg.bot:last-child')?.remove(); // remove typing if still there
+        addMsg('bot', reply2);
+      }
+    }
+    return; // Skip the normal reply since we handled it above
   } else if (a.type==='CREATE_BUCKET') {
     const nb = await callGraph('/planner/buckets', 'POST', { planId: currentPlan.id, name: a.name, orderHint: ' !' });
     if (nb && nb.id) {
