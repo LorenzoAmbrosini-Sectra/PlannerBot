@@ -548,8 +548,10 @@ function renderTasks() {
       const due = t.dueDateTime ? new Date(t.dueDateTime).toLocaleDateString('en-GB', {day:'numeric', month:'short'}) : '';
       const item = document.createElement('div');
       item.className = 'task-item';
+      item.style.cursor = 'pointer';
+      item.onclick = function(e) { if (!e.target.classList.contains('task-check')) openTaskModal(t.id); };
       item.innerHTML =
-        '<div class="task-check' + (done ? ' done' : '') + '" onclick="quickToggle(\'' + t.id + '\')" ></div>' +
+        '<div class="task-check' + (done ? ' done' : '') + '" onclick="event.stopPropagation();quickToggle(\'' + t.id + '\')" ></div>' +
         '<div class="task-info">' +
           '<div class="task-title' + (done ? ' done' : '') + '">' + t.title + '</div>' +
           '<div class="task-tags">' +
@@ -573,7 +575,9 @@ function renderTasks() {
       const done = t.percentComplete === 100;
       const item = document.createElement('div');
       item.className = 'task-item';
-      item.innerHTML = '<div class="task-check' + (done ? ' done' : '') + '" onclick="quickToggle(\'' + t.id + '\')" ></div><div class="task-info"><div class="task-title' + (done ? ' done' : '') + '">' + t.title + '</div></div>';
+      item.style.cursor = 'pointer';
+      item.onclick = function(e) { if (!e.target.classList.contains('task-check')) openTaskModal(t.id); };
+      item.innerHTML = '<div class="task-check' + (done ? ' done' : '') + '" onclick="event.stopPropagation();quickToggle(\'' + t.id + '\')" ></div><div class="task-info"><div class="task-title' + (done ? ' done' : '') + '">' + t.title + '</div></div>';
       colTasks.appendChild(item);
     });
   }
@@ -726,6 +730,7 @@ TASK ACTIONS (only when a plan is selected):
 <action>{"type":"EDIT","taskId":"id","title":"New title","priority":0,"dueDate":"YYYY-MM-DD","assignees":["Name or email"]}</action>
 <action>{"type":"DUPLICATE","taskId":"id","title":"Optional new title"}</action>
 <action>{"type":"CREATE_BUCKET","name":"Bucket name"}</action>
+You CAN create buckets. Always use CREATE_BUCKET when the user asks to create a bucket, column or category. Never say you cannot create buckets.
 
 Priority: 0=urgent, 2=important, 5=medium, 9=low. Default bucket: ${buckets[0]?.id||''}.
 
