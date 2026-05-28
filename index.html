@@ -733,6 +733,7 @@ TASK ACTIONS (only when a plan is selected):
 <action>{"type":"DUPLICATE","taskId":"id","title":"Optional new title","bucketId":"optional-target-bucket-id"}</action>
 When duplicating into a specific bucket, put the bucketId directly in the DUPLICATE action — do NOT use a separate EDIT action with "new-task-id". Example: <action>{"type":"DUPLICATE","taskId":"abc123","bucketId":"bucket456"}</action>
 Infer the target bucket from context. If ambiguous, ask which bucket before acting.
+MOVING a task means changing its bucket using EDIT — NOT duplicating it. "Move task X to bucket Y" = <action>{"type":"EDIT","taskId":"id","bucketId":"bucket-id"}</action>. Never use DUPLICATE for a move.
 <action>{"type":"CREATE_BUCKET","name":"Bucket name"}</action>
 You CAN create buckets. Always use CREATE_BUCKET when the user asks to create a bucket, column or category. Never say you cannot create buckets.
 <action>{"type":"FETCH_NOTES","taskId":"id"}</action>
@@ -1066,6 +1067,7 @@ async function doAction(a) {
     if (a.title) b.title=a.title;
     if (a.priority!==undefined) b.priority=a.priority;
     if (a.dueDate) b.dueDateTime=new Date(a.dueDate).toISOString();
+    if (a.bucketId) b.bucketId=a.bucketId;
     if (a.assignees && a.assignees.length > 0) {
       b.assignments = await resolveAssignees(a.assignees);
     }
