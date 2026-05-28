@@ -159,9 +159,31 @@
   .confirm-btn.no:hover { background: var(--surface2); }
   .confirm-btn:disabled { opacity: .4; cursor: not-allowed; }
 
+  /* ── TASK MODAL ── */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 200; align-items: center; justify-content: center; padding: 1rem; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--white); border-radius: 14px; padding: 1.75rem; width: 100%; max-width: 480px; max-height: 85vh; overflow-y: auto; box-shadow: 0 8px 40px rgba(0,64,113,0.2); }
+  .modal-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.25rem; gap: 1rem; }
+  .modal-title { font-size: 16px; font-weight: 700; color: var(--navy); flex: 1; line-height: 1.4; }
+  .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text3); line-height: 1; padding: 0; flex-shrink: 0; }
+  .modal-close:hover { color: var(--text); }
+  .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1rem; }
+  .modal-field { display: flex; flex-direction: column; gap: 3px; }
+  .modal-label { font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; }
+  .modal-value { font-size: 13px; color: var(--text); }
+  .modal-notes { margin-top: 1rem; }
+  .modal-notes-content { font-size: 13px; color: var(--text2); line-height: 1.7; background: var(--bg); border-radius: 8px; padding: 10px 12px; margin-top: 6px; white-space: pre-wrap; }
+  .modal-status { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+  .modal-status.notstarted { background: #f1efe8; color: #5f5e5a; }
+  .modal-status.inprogress { background: var(--surface2); color: var(--navy1); }
+  .modal-status.completed { background: #e1f5ee; color: #1a6b3a; }
+  .modal-priority { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; }
+  .modal-priority-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
   @media (max-width: 700px) {
     .chat-panel { width: 100%; border-right: none; }
     .task-panel { display: none; }
+    .modal-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -703,6 +725,7 @@ TASK ACTIONS (only when a plan is selected):
 <action>{"type":"DELETE","taskId":"id"}</action>
 <action>{"type":"EDIT","taskId":"id","title":"New title","priority":0,"dueDate":"YYYY-MM-DD","assignees":["Name or email"]}</action>
 <action>{"type":"DUPLICATE","taskId":"id","title":"Optional new title"}</action>
+<action>{"type":"CREATE_BUCKET","name":"Bucket name"}</action>
 
 Priority: 0=urgent, 2=important, 5=medium, 9=low. Default bucket: ${buckets[0]?.id||''}.
 
@@ -882,8 +905,11 @@ async function doAction(a) {
     const e=await getEtag(a.taskId);
     await callGraph(`/planner/tasks/${a.taskId}`,'PATCH',{percentComplete:a.type==='COMPLETE'?100:0},e);
   } else if (a.type==='DELETE') {
+    // Safety check: only delete tasks, never buckets
+    const taskExists = (currentPlan._tasks||[]).find(function(t) { return t.id === a.taskId; });
+    if (!taskExists) { console.warn('DELETE aborted: ID not found in tasks', a.taskId); return; }
     const e=await getEtag(a.taskId);
-    await callGraph(`/planner/tasks/${a.taskId}`,'DELETE',null,e);
+    await callGraph('/planner/tasks/' + a.taskId,'DELETE',null,e);
   } else if (a.type==='DUPLICATE') {
     // Read original task + details
     const orig = (currentPlan._tasks||[]).find(function(t) { return t.id === a.taskId; });
@@ -914,6 +940,13 @@ async function doAction(a) {
         const detailEtag = dr.headers.get('ETag') || '*';
         await callGraph('/planner/tasks/' + created.id + '/details', 'PATCH', { description: details.description }, detailEtag);
       } catch(e) { console.warn('Could not copy notes:', e); }
+    }
+  } else if (a.type==='CREATE_BUCKET') {
+    const nb = await callGraph('/planner/buckets', 'POST', { planId: currentPlan.id, name: a.name, orderHint: ' !' });
+    if (nb && nb.id) {
+      currentPlan._buckets = currentPlan._buckets || [];
+      currentPlan._buckets.push(nb);
+      console.log('Bucket created:', nb.name);
     }
   } else if (a.type==='EDIT') {
     const e=await getEtag(a.taskId);
@@ -961,6 +994,72 @@ function addTyping() {
   area.appendChild(d); area.scrollTop=area.scrollHeight; return d;
 }
 function esc(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+async function openTaskModal(taskId) {
+  const task = (currentPlan._tasks||[]).find(function(t) { return t.id === taskId; });
+  if (!task) return;
+  const bucket = (currentPlan._buckets||[]).find(function(b) { return b.id === task.bucketId; });
+  const pmap = {0:'Urgent',1:'Important',2:'Important',3:'Medium',4:'Medium',5:'Medium',6:'Low',7:'Low',8:'Low',9:'Low'};
+  const pcolor = {0:'#f58025',1:'#00548e',2:'#00548e',3:'#61a9d6',4:'#61a9d6',5:'#61a9d6',6:'#939598',7:'#939598',8:'#939598',9:'#939598'};
+  const done = task.percentComplete === 100;
+  const inProg = task.percentComplete > 0 && !done;
+  const now = new Date();
+  const overdue = task.dueDateTime && new Date(task.dueDateTime) < now && !done;
+
+  document.getElementById('modal-title').textContent = task.title;
+
+  const statusEl = document.getElementById('modal-status');
+  statusEl.className = 'modal-status ' + (done ? 'completed' : inProg ? 'inprogress' : 'notstarted');
+  statusEl.textContent = done ? 'Completed' : inProg ? 'In progress' : 'Not started';
+
+  document.getElementById('modal-priority').innerHTML =
+    '<span class="modal-priority"><span class="modal-priority-dot" style="background:' + (pcolor[task.priority]||'#939598') + '"></span>' + (pmap[task.priority]||'Medium') + '</span>';
+
+  document.getElementById('modal-bucket').textContent = bucket ? bucket.name : '—';
+
+  const dueEl = document.getElementById('modal-due');
+  if (task.dueDateTime) {
+    dueEl.textContent = new Date(task.dueDateTime).toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'});
+    dueEl.style.color = overdue ? '#f58025' : 'inherit';
+  } else {
+    dueEl.textContent = '—';
+    dueEl.style.color = 'inherit';
+  }
+
+  document.getElementById('modal-created').textContent = new Date(task.createdDateTime).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'});
+
+  // Assignees
+  const assigneeIds = Object.keys(task.assignments || {});
+  const assigneeEl = document.getElementById('modal-assignees');
+  if (assigneeIds.length === 0) {
+    assigneeEl.textContent = 'Unassigned';
+  } else {
+    assigneeEl.textContent = 'Loading…';
+    const names = await Promise.all(assigneeIds.map(async function(uid) {
+      try {
+        const u = await callGraph('/users/' + uid + '?$select=displayName');
+        return u.displayName || uid;
+      } catch(e) { return uid; }
+    }));
+    assigneeEl.textContent = names.join(', ');
+  }
+
+  // Notes
+  const notesEl = document.getElementById('modal-notes');
+  notesEl.textContent = 'Loading…';
+  try {
+    const details = await callGraph('/planner/tasks/' + taskId + '/details');
+    notesEl.textContent = details.description || 'No notes';
+  } catch(e) { notesEl.textContent = 'Could not load notes'; }
+
+  document.getElementById('task-modal').classList.add('open');
+}
+
+function closeTaskModal(e) {
+  if (e.target === document.getElementById('task-modal')) {
+    document.getElementById('task-modal').classList.remove('open');
+  }
+}
 function useSug(btn){
   if (btn.textContent==='Switch plan') { switchPlan(); return; }
   document.getElementById('chat-input').value=btn.textContent; sendMsg();
@@ -968,5 +1067,27 @@ function useSug(btn){
 function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();}}
 function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,100)+'px';}
 </script>
+<!-- TASK MODAL -->
+<div class="modal-overlay" id="task-modal" onclick="closeTaskModal(event)">
+  <div class="modal" id="modal-content">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title"></div>
+      <button class="modal-close" onclick="document.getElementById('task-modal').classList.remove('open')">×</button>
+    </div>
+    <div class="modal-grid">
+      <div class="modal-field"><div class="modal-label">Status</div><div class="modal-value" id="modal-status"></div></div>
+      <div class="modal-field"><div class="modal-label">Priority</div><div class="modal-value" id="modal-priority"></div></div>
+      <div class="modal-field"><div class="modal-label">Bucket</div><div class="modal-value" id="modal-bucket"></div></div>
+      <div class="modal-field"><div class="modal-label">Due date</div><div class="modal-value" id="modal-due"></div></div>
+      <div class="modal-field"><div class="modal-label">Assigned to</div><div class="modal-value" id="modal-assignees"></div></div>
+      <div class="modal-field"><div class="modal-label">Created</div><div class="modal-value" id="modal-created"></div></div>
+    </div>
+    <div class="modal-notes" id="modal-notes-section">
+      <div class="modal-label">Notes</div>
+      <div class="modal-notes-content" id="modal-notes">Loading…</div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
