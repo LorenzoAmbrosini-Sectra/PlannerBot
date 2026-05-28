@@ -148,6 +148,17 @@
   .no-plan-state { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 8px; color: var(--text3); font-size: 13px; padding: 2rem; text-align: center; }
   .no-plan-state strong { color: var(--navy); font-size: 15px; }
 
+  .confirm-btns { display: flex; gap: 8px; margin-top: 10px; }
+  .confirm-btn {
+    padding: 7px 20px; border-radius: 8px; font-size: 13px; font-weight: 500;
+    cursor: pointer; font-family: inherit; border: none; transition: all .12s;
+  }
+  .confirm-btn.yes { background: var(--navy); color: #fff; }
+  .confirm-btn.yes:hover { background: var(--navy1); }
+  .confirm-btn.no { background: var(--bg); color: var(--text2); border: 1px solid var(--border2); }
+  .confirm-btn.no:hover { background: var(--surface2); }
+  .confirm-btn:disabled { opacity: .4; cursor: not-allowed; }
+
   @media (max-width: 700px) {
     .chat-panel { width: 100%; border-right: none; }
     .task-panel { display: none; }
@@ -694,10 +705,10 @@ TASK ACTIONS (only when a plan is selected):
 
 Priority: 0=urgent, 2=important, 5=medium, 9=low. Default bucket: ${buckets[0]?.id||''}.
 
-ASSIGNMENT: You CAN assign tasks to people. Use the assignees field with their name or email:
-<action>{"type":"CREATE","title":"Task title","assignees":["Lorenzo Ambrosini"]}</action>
+ASSIGNMENT: You CAN assign tasks to people. Use the assignees field with their email address (preferred) or first.last name format:
+<action>{"type":"CREATE","title":"Task title","assignees":["lorenzo.ambrosini@sectra.com"]}</action>
 <action>{"type":"EDIT","taskId":"id","assignees":["anna@sectra.com"]}</action>
-The app will look up the person in the organisation directory automatically. Always use this when the user mentions assigning to someone.
+If the user gives only a first name, ask them to confirm the full email before assigning. Always use email when possible.
 
 CONFIRMATION RULES — always follow these:
 1. Before executing ANY action (create, edit, complete, delete, assign), first describe what you are about to do and ask the user to confirm. Example: "I'll create a task called 'X' assigned to Lorenzo, priority urgent due Friday. Shall I go ahead?"
@@ -711,14 +722,34 @@ Be concise and professional.`;
 }
 
 async function lookupUser(nameOrEmail) {
+  const lower = nameOrEmail.toLowerCase().trim();
+  // Method 1: direct email or first.last@sectra.com
+  const emailToTry = lower.includes('@') ? lower : lower.replace(' ', '.') + '@sectra.com';
   try {
-    // Search by display name or email
-    const r = await callGraph('/users?$search="displayName:' + nameOrEmail + '"&$select=id,displayName,mail&$top=5', 'GET');
-    if (r.value && r.value.length > 0) return r.value[0];
-    // Try by email directly
-    const r2 = await callGraph("/users?$filter=mail eq '" + nameOrEmail + "'&$select=id,displayName,mail");
-    if (r2.value && r2.value.length > 0) return r2.value[0];
-  } catch(e) { console.warn('User lookup failed:', e); }
+    const u = await callGraph('/users/' + encodeURIComponent(emailToTry) + '?$select=id,displayName,mail');
+    if (u && u.id) { console.log('Found user by email:', u.displayName); return u; }
+  } catch(e) { console.warn('Email lookup failed for', emailToTry); }
+  // Method 2: scan existing assignees in current plan
+  try {
+    const tasks = (currentPlan && currentPlan._tasks) || [];
+    const seen = {};
+    for (const t of tasks) {
+      for (const uid of Object.keys(t.assignments || {})) {
+        if (seen[uid]) continue;
+        seen[uid] = true;
+        try {
+          const u = await callGraph('/users/' + uid + '?$select=id,displayName,mail');
+          if (u && u.displayName) {
+            const name = u.displayName.toLowerCase();
+            if (name === lower || name.includes(lower) || lower.includes(name.split(' ')[0])) {
+              console.log('Found user via assignees:', u.displayName); return u;
+            }
+          }
+        } catch(e) {}
+      }
+    }
+  } catch(e) { console.warn('Assignee scan failed:', e.message); }
+  console.error('Could not find user:', nameOrEmail);
   return null;
 }
 
@@ -726,12 +757,14 @@ async function resolveAssignees(names) {
   if (!names || !names.length) return {};
   const assignments = {};
   for (const name of names) {
-    const user = await lookupUser(name);
-    if (user) {
-      assignments[user.id] = { '@odata.type': '#microsoft.graph.plannerAssignment', 'orderHint': ' !' };
-    } else {
-      console.warn('Could not find user:', name);
-    }
+    try {
+      const user = await lookupUser(name);
+      if (user) {
+        assignments[user.id] = { '@odata.type': '#microsoft.graph.plannerAssignment', 'orderHint': ' !' };
+      } else {
+        console.warn('Could not find user:', name);
+      }
+    } catch(e) { console.warn('Skipping assignee lookup error:', e.message); }
   }
   return assignments;
 }
@@ -793,7 +826,9 @@ async function sendMsg() {
     if (needsRefresh) await refreshTasks();
 
     typing.remove();
-    addMsg('bot', clean);
+    // Show confirm buttons if the response appears to be asking for confirmation
+    const isConfirmQ = /shall i|go ahead|are you sure|want me to|should i|confirm|proceed/i.test(clean) && clean.includes('?');
+    addMsg('bot', clean, isConfirmQ);
   } catch(e) {
     typing.remove();
     addMsg('bot', 'Something went wrong: ' + e.message);
@@ -853,15 +888,30 @@ async function doAction(a) {
 }
 
 // ── CHAT UI ──
-function addMsg(role, text) {
+function addMsg(role, text, showConfirm) {
   const area=document.getElementById('chat-messages');
   const d=document.createElement('div'); d.className=`msg ${role}`;
   const init=role==='bot'?'PB':(document.getElementById('header-user').textContent.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()||'ME');
   const html=role==='bot'
     ?esc(text).replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\*(.*?)\*/g,'<em>$1</em>').replace(/`(.*?)`/g,'<code>$1</code>').replace(/\n/g,'<br>')
     :esc(text);
-  d.innerHTML=`<div class="avatar ${role}">${init}</div><div class="bubble">${html}</div>`;
+
+  const confirmHtml = (showConfirm && role==='bot')
+    ? '<div class="confirm-btns"><button class="confirm-btn yes" onclick="sendConfirm(true, this)">Yes</button><button class="confirm-btn no" onclick="sendConfirm(false, this)">No</button></div>'
+    : '';
+
+  d.innerHTML=`<div class="avatar ${role}">${init}</div><div class="bubble">${html}${confirmHtml}</div>`;
   area.appendChild(d); area.scrollTop=area.scrollHeight; return d;
+}
+
+function sendConfirm(yes, btn) {
+  // Disable both buttons
+  const btns = btn.closest('.confirm-btns').querySelectorAll('button');
+  btns.forEach(function(b) { b.disabled = true; });
+  // Send yes or no as a message
+  const inp = document.getElementById('chat-input');
+  inp.value = yes ? 'Yes' : 'No';
+  sendMsg();
 }
 function addTyping() {
   const area=document.getElementById('chat-messages');
