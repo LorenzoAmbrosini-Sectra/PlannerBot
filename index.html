@@ -694,12 +694,17 @@ TASK ACTIONS (only when a plan is selected):
 
 Priority: 0=urgent, 2=important, 5=medium, 9=low. Default bucket: ${buckets[0]?.id||''}.
 
+ASSIGNMENT: You CAN assign tasks to people. Use the assignees field with their name or email:
+<action>{"type":"CREATE","title":"Task title","assignees":["Lorenzo Ambrosini"]}</action>
+<action>{"type":"EDIT","taskId":"id","assignees":["anna@sectra.com"]}</action>
+The app will look up the person in the organisation directory automatically. Always use this when the user mentions assigning to someone.
+
 CONFIRMATION RULES — always follow these:
-1. Before executing ANY action (create, edit, complete, delete), first describe what you are about to do and ask the user to confirm. Example: "I'll create a task called 'X' with priority urgent due Friday. Shall I go ahead?"
+1. Before executing ANY action (create, edit, complete, delete, assign), first describe what you are about to do and ask the user to confirm. Example: "I'll create a task called 'X' assigned to Lorenzo, priority urgent due Friday. Shall I go ahead?"
 2. Only include <action> tags AFTER the user has confirmed (said yes, ok, go ahead, sure, etc.)
 3. For DELETE, always warn clearly: "This will permanently delete '[task name]'. Are you sure?"
 4. For bulk actions (multiple tasks), list all of them and ask once.
-5. After executing, confirm what was done. Example: "Done! I've created the task 'X'."
+5. After executing, confirm what was done. Example: "Done! I've created the task 'X' and assigned it to Lorenzo."
 6. If the user's message is clearly a confirmation (yes/ok/sure/go ahead/do it), execute the pending action immediately.
 
 Be concise and professional.`;
