@@ -728,7 +728,8 @@ TASK ACTIONS (only when a plan is selected):
 <action>{"type":"INCOMPLETE","taskId":"id"}</action>
 <action>{"type":"DELETE","taskId":"id"}</action>
 <action>{"type":"EDIT","taskId":"id","title":"New title","priority":0,"dueDate":"YYYY-MM-DD","assignees":["Name or email"],"notes":"Updated notes text"}</action>
-<action>{"type":"DUPLICATE","taskId":"id","title":"Optional new title"}</action>
+<action>{"type":"DUPLICATE","taskId":"id","title":"Optional new title","bucketId":"optional-target-bucket-id"}</action>
+When duplicating, infer the target bucket from context (e.g. "duplicate into Test Bucket" → use Test Bucket's ID). If the user mentions a bucket, always use it. If no bucket is mentioned and it's ambiguous, ask "Which bucket should I put the copy in?" before acting. If it's obvious (e.g. same plan, only one logical bucket), just do it.
 <action>{"type":"CREATE_BUCKET","name":"Bucket name"}</action>
 You CAN create buckets. Always use CREATE_BUCKET when the user asks to create a bucket, column or category. Never say you cannot create buckets.
 <action>{"type":"FETCH_NOTES","taskId":"id"}</action>
@@ -747,7 +748,7 @@ CONFIRMATION RULES:
    - Bulk DELETE of any number of tasks
    - Bulk operations affecting 5+ tasks at once
    For ALL other actions (create, edit, update notes, complete, assign, duplicate, create bucket), execute IMMEDIATELY without asking. Do not ask "Shall I proceed?" for routine edits.
-2. IMPORTANT: You MUST include the <action> tag to actually perform the operation — saying "Done!" without an <action> tag does nothing. Never claim to have completed an action without including the corresponding <action> tag.
+2. CRITICAL: You MUST include the <action> tag to actually perform ANY operation. Saying "One moment", "Let me do that", "Done!" or "I'll move it now" without an <action> tag does NOTHING. Never describe an action as happening or completed without including the <action> tag in the same message. If you cannot perform something, say so clearly instead of pretending.
 3. For DELETE always warn: "This will permanently delete '[task name]'. Are you sure?"
 4. After executing, briefly confirm what was done. Example: "Done! Updated notes on task X."
 5. If the user confirms (yes/ok/sure/go ahead), execute immediately.
@@ -941,7 +942,9 @@ async function doAction(a) {
       title: a.title || orig.title + ' (copy)',
       priority: orig.priority
     };
-    if (orig.bucketId) nb.bucketId = orig.bucketId;
+    // Use target bucket if specified, otherwise keep original bucket
+    if (a.bucketId) nb.bucketId = a.bucketId;
+    else if (orig.bucketId) nb.bucketId = orig.bucketId;
     if (orig.dueDateTime) nb.dueDateTime = orig.dueDateTime;
     if (orig.assignments && Object.keys(orig.assignments).length > 0) {
       nb.assignments = {};
