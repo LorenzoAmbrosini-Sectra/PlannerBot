@@ -954,6 +954,7 @@ async function doAction(a) {
       console.log('Bucket created:', nb.name);
     }
   } else if (a.type==='EDIT') {
+    console.log('EDIT action received:', JSON.stringify(a));
     const e=await getEtag(a.taskId);
     const b={};
     if (a.title) b.title=a.title;
