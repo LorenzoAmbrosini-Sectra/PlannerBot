@@ -878,8 +878,11 @@ async function sendMsg() {
 
     if (!hasFetchNotes) {
       typing.remove();
-      const isConfirmQ = /are you sure|permanently delete|cannot be undone|irreversible|bulk delete/i.test(clean) && clean.includes('?');
-      addMsg('bot', clean, isConfirmQ);
+      const displayText = clean || (actions.length > 0 ? 'Done!' : '');
+      if (displayText) {
+        const isConfirmQ = /are you sure|permanently delete|cannot be undone|irreversible|bulk delete/i.test(displayText) && displayText.includes('?');
+        addMsg('bot', displayText, isConfirmQ);
+      }
     }
   } catch(e) {
     typing.remove();
@@ -940,7 +943,7 @@ async function doAction(a) {
     // Create new task with same fields
     const nb = {
       planId: currentPlan.id,
-      title: a.title || orig.title + ' (copy)',
+      title: a.title || (a.bucketId && a.bucketId !== orig.bucketId ? orig.title : orig.title + ' (copy)'),
       priority: orig.priority
     };
     // Use target bucket if specified, otherwise keep original bucket
