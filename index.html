@@ -728,8 +728,10 @@ async function lookupUser(nameOrEmail) {
   if (lower.includes('@')) {
     emailToTry = nameOrEmail.trim();
   } else {
-    // Convert "First Last" -> "First.Last@sectra.com"
-    const parts = nameOrEmail.trim().split(' ');
+    // Convert "First Last" -> "First.Last@sectra.com" with each part capitalised
+    const parts = nameOrEmail.trim().split(' ').map(function(p) {
+      return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase();
+    });
     emailToTry = parts.join('.') + '@sectra.com';
   }
   try {
