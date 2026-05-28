@@ -729,7 +729,8 @@ TASK ACTIONS (only when a plan is selected):
 <action>{"type":"DELETE","taskId":"id"}</action>
 <action>{"type":"EDIT","taskId":"id","title":"New title","priority":0,"dueDate":"YYYY-MM-DD","assignees":["Name or email"],"notes":"Updated notes text"}</action>
 <action>{"type":"DUPLICATE","taskId":"id","title":"Optional new title","bucketId":"optional-target-bucket-id"}</action>
-When duplicating, infer the target bucket from context (e.g. "duplicate into Test Bucket" → use Test Bucket's ID). If the user mentions a bucket, always use it. If no bucket is mentioned and it's ambiguous, ask "Which bucket should I put the copy in?" before acting. If it's obvious (e.g. same plan, only one logical bucket), just do it.
+When duplicating into a specific bucket, put the bucketId directly in the DUPLICATE action — do NOT use a separate EDIT action with "new-task-id". Example: <action>{"type":"DUPLICATE","taskId":"abc123","bucketId":"bucket456"}</action>
+Infer the target bucket from context. If ambiguous, ask which bucket before acting.
 <action>{"type":"CREATE_BUCKET","name":"Bucket name"}</action>
 You CAN create buckets. Always use CREATE_BUCKET when the user asks to create a bucket, column or category. Never say you cannot create buckets.
 <action>{"type":"FETCH_NOTES","taskId":"id"}</action>
