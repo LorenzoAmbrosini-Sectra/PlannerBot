@@ -702,6 +702,7 @@ TASK ACTIONS (only when a plan is selected):
 <action>{"type":"INCOMPLETE","taskId":"id"}</action>
 <action>{"type":"DELETE","taskId":"id"}</action>
 <action>{"type":"EDIT","taskId":"id","title":"New title","priority":0,"dueDate":"YYYY-MM-DD","assignees":["Name or email"]}</action>
+<action>{"type":"DUPLICATE","taskId":"id","title":"Optional new title"}</action>
 
 Priority: 0=urgent, 2=important, 5=medium, 9=low. Default bucket: ${buckets[0]?.id||''}.
 
@@ -883,6 +884,37 @@ async function doAction(a) {
   } else if (a.type==='DELETE') {
     const e=await getEtag(a.taskId);
     await callGraph(`/planner/tasks/${a.taskId}`,'DELETE',null,e);
+  } else if (a.type==='DUPLICATE') {
+    // Read original task + details
+    const orig = (currentPlan._tasks||[]).find(function(t) { return t.id === a.taskId; });
+    if (!orig) throw new Error('Task not found');
+    const detailR = await fetch(GRAPH + '/planner/tasks/' + a.taskId + '/details', {
+      headers: { 'Authorization': 'Bearer ' + accessToken }
+    });
+    const details = detailR.ok ? await detailR.json() : {};
+    // Create new task with same fields
+    const nb = {
+      planId: currentPlan.id,
+      title: a.title || orig.title + ' (copy)',
+      priority: orig.priority
+    };
+    if (orig.bucketId) nb.bucketId = orig.bucketId;
+    if (orig.dueDateTime) nb.dueDateTime = orig.dueDateTime;
+    if (orig.assignments && Object.keys(orig.assignments).length > 0) {
+      nb.assignments = {};
+      Object.keys(orig.assignments).forEach(function(uid) {
+        nb.assignments[uid] = { '@odata.type': '#microsoft.graph.plannerAssignment', 'orderHint': ' !' };
+      });
+    }
+    const created = await callGraph('/planner/tasks', 'POST', nb);
+    if (details.description && created && created.id) {
+      await new Promise(function(r) { setTimeout(r, 2000); });
+      try {
+        const dr = await fetch(GRAPH + '/planner/tasks/' + created.id + '/details', { headers: { 'Authorization': 'Bearer ' + accessToken } });
+        const detailEtag = dr.headers.get('ETag') || '*';
+        await callGraph('/planner/tasks/' + created.id + '/details', 'PATCH', { description: details.description }, detailEtag);
+      } catch(e) { console.warn('Could not copy notes:', e); }
+    }
   } else if (a.type==='EDIT') {
     const e=await getEtag(a.taskId);
     const b={};
