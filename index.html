@@ -723,8 +723,15 @@ Be concise and professional.`;
 
 async function lookupUser(nameOrEmail) {
   const lower = nameOrEmail.toLowerCase().trim();
-  // Method 1: direct email or first.last@sectra.com
-  const emailToTry = lower.includes('@') ? lower : lower.replace(' ', '.') + '@sectra.com';
+  // Method 1: direct email or First.Last@sectra.com (preserve original casing)
+  let emailToTry;
+  if (lower.includes('@')) {
+    emailToTry = nameOrEmail.trim();
+  } else {
+    // Convert "First Last" -> "First.Last@sectra.com"
+    const parts = nameOrEmail.trim().split(' ');
+    emailToTry = parts.join('.') + '@sectra.com';
+  }
   try {
     const u = await callGraph('/users/' + encodeURIComponent(emailToTry) + '?$select=id,displayName,mail');
     if (u && u.id) { console.log('Found user by email:', u.displayName); return u; }
@@ -827,7 +834,7 @@ async function sendMsg() {
 
     typing.remove();
     // Show confirm buttons if the response appears to be asking for confirmation
-    const isConfirmQ = /shall i|go ahead|are you sure|want me to|should i|confirm|proceed/i.test(clean) && clean.includes('?');
+    const isConfirmQ = /shall i|go ahead|are you sure|want me to|should i|confirm|proceed|would you like|do you want|can i|may i|ready to|like me to/i.test(clean) && clean.includes('?');
     addMsg('bot', clean, isConfirmQ);
   } catch(e) {
     typing.remove();
