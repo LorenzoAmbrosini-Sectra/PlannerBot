@@ -326,14 +326,14 @@ function askWhichPlan() {
   botMsg._allPlans = sorted;
 
   function chipHtml(p) {
-    return '<div class="plan-chip" onclick="selectPlan('' + p.id + '')">' +
+    return '<div class="plan-chip" onclick="selectPlan(\'' + p.id + '\')">' +
       '<div><div class="plan-chip-name">' + p.title + '</div>' +
       '<div class="plan-chip-meta">' + p._activeTasks + ' active task' + (p._activeTasks !== 1 ? 's' : '') + '</div></div>' +
       '<div class="plan-chip-arrow">→</div></div>';
   }
 
   const otherBtn = rest.length > 0
-    ? '<div class="plan-chip" id="show-more-' + msgId + '" onclick="showMorePlans('' + msgId + '')" style="justify-content:center;color:var(--web);font-weight:600;font-size:13px;">+ ' + rest.length + ' more plans</div>'
+    ? '<div class="plan-chip" id="show-more-' + msgId + '" onclick="showMorePlans(\'' + msgId + '\')"  style="justify-content:center;color:var(--web);font-weight:600;font-size:13px;">+ ' + rest.length + ' more plans</div>'
     : '';
 
   botMsg.innerHTML = '<div class="avatar bot">PB</div><div class="bubble">' +
@@ -357,10 +357,10 @@ function showMorePlans(msgId) {
   chipsEl.innerHTML =
     '<input type="text" placeholder="Search plans…" ' +
     'style="width:100%;margin:4px 0 8px;padding:7px 10px;border:1px solid var(--border2);border-radius:7px;font-size:12px;font-family:inherit;background:var(--bg);color:var(--text);" ' +
-    'oninput="filterPlanChips('' + msgId + '', this.value)" />' +
+    'oninput="filterPlanChips(\'' + msgId + '\', this.value)" />' +
     '<div id="chips-inner-' + msgId + '">' +
     sorted.map(function(p) {
-      return '<div class="plan-chip" onclick="selectPlan('' + p.id + '')">' +
+      return '<div class="plan-chip" onclick="selectPlan(\'' + p.id + '\')">' +
         '<div><div class="plan-chip-name">' + p.title + '</div>' +
         '<div class="plan-chip-meta">' + p._activeTasks + ' active task' + (p._activeTasks !== 1 ? 's' : '') + '</div></div>' +
         '<div class="plan-chip-arrow">→</div></div>';
@@ -377,7 +377,7 @@ function filterPlanChips(msgId, query) {
   const inner = document.getElementById('chips-inner-' + msgId);
   if (!inner) return;
   inner.innerHTML = filtered.map(function(p) {
-    return '<div class="plan-chip" onclick="selectPlan('' + p.id + '')">' +
+    return '<div class="plan-chip" onclick="selectPlan(\'' + p.id + '\')">' +
       '<div><div class="plan-chip-name">' + p.title + '</div>' +
       '<div class="plan-chip-meta">' + p._activeTasks + ' active task' + (p._activeTasks !== 1 ? 's' : '') + '</div></div>' +
       '<div class="plan-chip-arrow">→</div></div>';
@@ -403,7 +403,7 @@ async function selectPlan(planId) {
   currentPlan._buckets = bd.value || [];
 
   addMsg('user', plan.title);
-  addMsg('bot', 'Great! I've loaded **' + plan.title + '**. You have **' + plan._activeTasks + '** active tasks. What would you like to do?');
+  addMsg('bot', "Great! I've loaded **" + plan.title + "**. You have **" + plan._activeTasks + "** active tasks. What would you like to do?");
 
   document.getElementById('suggestions').style.display = 'flex';
   renderTasks();
@@ -498,7 +498,7 @@ function renderTasks() {
       const item = document.createElement('div');
       item.className = 'task-item';
       item.innerHTML =
-        '<div class="task-check' + (done ? ' done' : '') + '" onclick="quickToggle('' + t.id + '')"></div>' +
+        '<div class="task-check' + (done ? ' done' : '') + '" onclick="quickToggle(\'' + t.id + '\')" ></div>' +
         '<div class="task-info">' +
           '<div class="task-title' + (done ? ' done' : '') + '">' + t.title + '</div>' +
           '<div class="task-tags">' +
@@ -522,7 +522,7 @@ function renderTasks() {
       const done = t.percentComplete === 100;
       const item = document.createElement('div');
       item.className = 'task-item';
-      item.innerHTML = '<div class="task-check' + (done ? ' done' : '') + '" onclick="quickToggle('' + t.id + '')"></div><div class="task-info"><div class="task-title' + (done ? ' done' : '') + '">' + t.title + '</div></div>';
+      item.innerHTML = '<div class="task-check' + (done ? ' done' : '') + '" onclick="quickToggle(\'' + t.id + '\')" ></div><div class="task-info"><div class="task-title' + (done ? ' done' : '') + '">' + t.title + '</div></div>';
       colTasks.appendChild(item);
     });
   }
