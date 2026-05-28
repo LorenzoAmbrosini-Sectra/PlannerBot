@@ -442,6 +442,7 @@ function switchPlan() {
 async function callGraph(path, method='GET', body=null, etag=null) {
   const h = { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' };
   if (etag) h['If-Match'] = etag;
+  if (path.includes('$search')) h['ConsistencyLevel'] = 'eventual';
   const r = await fetch(GRAPH + path, { method, headers: h, body: body ? JSON.stringify(body) : null });
   if (!r.ok) throw new Error(await r.text());
   if (r.status === 204) return {};
@@ -685,11 +686,11 @@ SWITCH PLAN: If the user wants to switch plans, respond with:
 <action>{"type":"SWITCH_PLAN"}</action>
 
 TASK ACTIONS (only when a plan is selected):
-<action>{"type":"CREATE","title":"Task title","bucketId":"optional-id","priority":5,"dueDate":"YYYY-MM-DD","notes":"Optional notes text"}</action>
+<action>{"type":"CREATE","title":"Task title","bucketId":"optional-id","priority":5,"dueDate":"YYYY-MM-DD","notes":"Optional notes","assignees":["Name or email"]}</action>
 <action>{"type":"COMPLETE","taskId":"id"}</action>
 <action>{"type":"INCOMPLETE","taskId":"id"}</action>
 <action>{"type":"DELETE","taskId":"id"}</action>
-<action>{"type":"EDIT","taskId":"id","title":"New title","priority":0,"dueDate":"YYYY-MM-DD"}</action>
+<action>{"type":"EDIT","taskId":"id","title":"New title","priority":0,"dueDate":"YYYY-MM-DD","assignees":["Name or email"]}</action>
 
 Priority: 0=urgent, 2=important, 5=medium, 9=low. Default bucket: ${buckets[0]?.id||''}.
 
@@ -702,6 +703,32 @@ CONFIRMATION RULES — always follow these:
 6. If the user's message is clearly a confirmation (yes/ok/sure/go ahead/do it), execute the pending action immediately.
 
 Be concise and professional.`;
+}
+
+async function lookupUser(nameOrEmail) {
+  try {
+    // Search by display name or email
+    const r = await callGraph('/users?$search="displayName:' + nameOrEmail + '"&$select=id,displayName,mail&$top=5', 'GET');
+    if (r.value && r.value.length > 0) return r.value[0];
+    // Try by email directly
+    const r2 = await callGraph("/users?$filter=mail eq '" + nameOrEmail + "'&$select=id,displayName,mail");
+    if (r2.value && r2.value.length > 0) return r2.value[0];
+  } catch(e) { console.warn('User lookup failed:', e); }
+  return null;
+}
+
+async function resolveAssignees(names) {
+  if (!names || !names.length) return {};
+  const assignments = {};
+  for (const name of names) {
+    const user = await lookupUser(name);
+    if (user) {
+      assignments[user.id] = { '@odata.type': '#microsoft.graph.plannerAssignment', 'orderHint': ' !' };
+    } else {
+      console.warn('Could not find user:', name);
+    }
+  }
+  return assignments;
 }
 
 async function sendMsg() {
@@ -774,14 +801,32 @@ async function doAction(a) {
     const b={planId:currentPlan.id,title:a.title,priority:a.priority??5};
     if (a.bucketId) b.bucketId=a.bucketId;
     if (a.dueDate) b.dueDateTime=new Date(a.dueDate).toISOString();
+    if (a.assignees && a.assignees.length > 0) {
+      b.assignments = await resolveAssignees(a.assignees);
+    }
     const created = await callGraph('/planner/tasks','POST',b);
     if (a.notes && created && created.id) {
-      // Wait for task to settle before updating details
-      await new Promise(function(r) { setTimeout(r, 800); });
+      // Wait for task to fully settle in Planner backend
+      await new Promise(function(r) { setTimeout(r, 2000); });
       try {
-        const detailR = await fetch(GRAPH + '/planner/tasks/' + created.id + '/details', { headers: { 'Authorization': 'Bearer ' + accessToken } }); const detailEtag = detailR.headers.get('ETag') || '*';
-        await callGraph('/planner/tasks/' + created.id + '/details', 'PATCH', { description: a.notes }, detailEtag);
-      } catch(e) { console.warn('Notes update failed:', e); }
+        // Fetch the details resource to get its ETag
+        const detailR = await fetch(GRAPH + '/planner/tasks/' + created.id + '/details', {
+          headers: { 'Authorization': 'Bearer ' + accessToken }
+        });
+        const detailEtag = detailR.headers.get('ETag') || '*';
+        // Strip markdown formatting from notes — Planner only supports plain text
+        const plainNotes = a.notes
+          .replace(/\*\*(.*?)\*\*/g, '$1')
+          .replace(/\*(.*?)\*/g, '$1')
+          .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+          .replace(/---/g, '')
+          .replace(/#{1,6}\s/g, '')
+          .trim();
+        await callGraph('/planner/tasks/' + created.id + '/details', 'PATCH', { description: plainNotes }, detailEtag);
+        console.log('Notes saved successfully');
+      } catch(e) {
+        console.error('Notes update failed:', e);
+      }
     }
   } else if (a.type==='COMPLETE'||a.type==='INCOMPLETE') {
     const e=await getEtag(a.taskId);
@@ -795,6 +840,9 @@ async function doAction(a) {
     if (a.title) b.title=a.title;
     if (a.priority!==undefined) b.priority=a.priority;
     if (a.dueDate) b.dueDateTime=new Date(a.dueDate).toISOString();
+    if (a.assignees && a.assignees.length > 0) {
+      b.assignments = await resolveAssignees(a.assignees);
+    }
     await callGraph(`/planner/tasks/${a.taskId}`,'PATCH',b,e);
   }
 }
