@@ -857,21 +857,28 @@ async function sendMsg() {
     const actions = [...reply.matchAll(/<action>([\s\S]*?)<\/action>/g)];
     const clean = reply.replace(/<action>[\s\S]*?<\/action>/g,'').trim();
 
+    // Check if this is a FETCH_NOTES action — suppress initial reply, show result after fetch
+    const hasFetchNotes = actions.some(function(a) {
+      try { return JSON.parse(a[1]).type === 'FETCH_NOTES'; } catch(e) { return false; }
+    });
+
     let needsRefresh = false;
     for (const a of actions) {
       try {
         const action = JSON.parse(a[1]);
         if (action.type === 'SWITCH_PLAN') { typing.remove(); switchPlan(); busy=false; document.getElementById('send-btn').disabled=false; return; }
+        if (action.type === 'FETCH_NOTES') { await doAction(action); continue; } // handled inside doAction
         await doAction(action);
         needsRefresh = true;
       } catch(e) { console.warn(e); }
     }
     if (needsRefresh) await refreshTasks();
 
-    typing.remove();
-    // Show confirm buttons if the response appears to be asking for confirmation
-    const isConfirmQ = /are you sure|permanently delete|cannot be undone|irreversible|bulk delete/i.test(clean) && clean.includes('?');
-    addMsg('bot', clean, isConfirmQ);
+    if (!hasFetchNotes) {
+      typing.remove();
+      const isConfirmQ = /are you sure|permanently delete|cannot be undone|irreversible|bulk delete/i.test(clean) && clean.includes('?');
+      addMsg('bot', clean, isConfirmQ);
+    }
   } catch(e) {
     typing.remove();
     addMsg('bot', 'Something went wrong: ' + e.message);
@@ -952,6 +959,10 @@ async function doAction(a) {
       } catch(e) { console.warn('Could not copy notes:', e); }
     }
   } else if (a.type==='FETCH_NOTES') {
+    // Remove typing indicator first
+    const typingEl = document.querySelector('.msg.bot:last-child');
+    if (typingEl && typingEl.querySelector('.typing')) typingEl.remove();
+
     const dr = await fetch(GRAPH + '/planner/tasks/' + a.taskId + '/details', {
       headers: { 'Authorization': 'Bearer ' + accessToken }
     });
@@ -960,23 +971,23 @@ async function doAction(a) {
       const notes = details.description || '(no notes)';
       const task = (currentPlan._tasks||[]).find(function(t) { return t.id === a.taskId; });
       const taskTitle = task ? task.title : a.taskId;
-      // Inject notes back into conversation so GPT can answer
-      history.push({ role: "user", content: "[SYSTEM: Notes for task \"" + taskTitle + "\": " + notes + ". Please summarise or answer the user's question about these notes.]" });
+      // Inject notes and ask GPT to answer
+      history.push({ role: "user", content: "[SYSTEM: Notes for task \"" + taskTitle + "\": " + notes + ". Please answer the user's original question about these notes now.]" });
+      const fetchTyping = addTyping();
       const res2 = await fetch(AZ_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'api-key': AZ_KEY },
         body: JSON.stringify({ messages: [{ role: 'system', content: buildSystem() }, ...history], max_tokens: 1000, temperature: 0.3 })
       });
+      fetchTyping.remove();
       if (res2.ok) {
         const data2 = await res2.json();
         const reply2 = data2.choices[0].message.content;
         history.push({ role: 'assistant', content: reply2 });
-        // Display this follow-up reply
-        document.querySelector('.msg.bot:last-child')?.remove(); // remove typing if still there
         addMsg('bot', reply2);
       }
     }
-    return; // Skip the normal reply since we handled it above
+    return;
   } else if (a.type==='CREATE_BUCKET') {
     const nb = await callGraph('/planner/buckets', 'POST', { planId: currentPlan.id, name: a.name, orderHint: ' !' });
     if (nb && nb.id) {
