@@ -727,7 +727,7 @@ TASK ACTIONS (only when a plan is selected):
 <action>{"type":"COMPLETE","taskId":"id"}</action>
 <action>{"type":"INCOMPLETE","taskId":"id"}</action>
 <action>{"type":"DELETE","taskId":"id"}</action>
-<action>{"type":"EDIT","taskId":"id","title":"New title","priority":0,"dueDate":"YYYY-MM-DD","assignees":["Name or email"]}</action>
+<action>{"type":"EDIT","taskId":"id","title":"New title","priority":0,"dueDate":"YYYY-MM-DD","assignees":["Name or email"],"notes":"Updated notes text"}</action>
 <action>{"type":"DUPLICATE","taskId":"id","title":"Optional new title"}</action>
 <action>{"type":"CREATE_BUCKET","name":"Bucket name"}</action>
 You CAN create buckets. Always use CREATE_BUCKET when the user asks to create a bucket, column or category. Never say you cannot create buckets.
@@ -962,7 +962,21 @@ async function doAction(a) {
     if (a.assignees && a.assignees.length > 0) {
       b.assignments = await resolveAssignees(a.assignees);
     }
-    await callGraph(`/planner/tasks/${a.taskId}`,'PATCH',b,e);
+    if (Object.keys(b).length > 0) await callGraph('/planner/tasks/' + a.taskId,'PATCH',b,e);
+    if (a.notes) {
+      await new Promise(function(r) { setTimeout(r, 500); });
+      try {
+        const dr = await fetch(GRAPH + '/planner/tasks/' + a.taskId + '/details', { headers: { 'Authorization': 'Bearer ' + accessToken } });
+        const detailEtag = dr.headers.get('ETag') || '*';
+        const plainNotes = a.notes
+          .replace(/\*\*(.*?)\*\*/g, '$1')
+          .replace(/\*(.*?)\*/g, '$1')
+          .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+          .replace(/---/g, '').replace(/#{1,6}\s/g, '').trim();
+        await callGraph('/planner/tasks/' + a.taskId + '/details', 'PATCH', { description: plainNotes }, detailEtag);
+        console.log('Notes updated successfully');
+      } catch(e) { console.error('Notes update failed:', e); }
+    }
   }
 }
 
