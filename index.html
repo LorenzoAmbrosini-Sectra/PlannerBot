@@ -726,7 +726,9 @@ TASK ACTIONS (only when a plan is selected):
 <action>{"type":"CREATE","title":"Task title","bucketId":"optional-id","priority":5,"dueDate":"YYYY-MM-DD","notes":"Optional notes","assignees":["Name or email"]}</action>
 <action>{"type":"COMPLETE","taskId":"id"}</action>
 <action>{"type":"INCOMPLETE","taskId":"id"}</action>
-<action>{"type":"DELETE","taskId":"id"}</action>
+<action>{"type":"SOFT_DELETE","taskId":"id"}</action>
+<action>{"type":"RESTORE","taskId":"id"}</action>
+<action>{"type":"EMPTY_BIN"}</action>
 <action>{"type":"EDIT","taskId":"id","title":"New title","priority":0,"dueDate":"YYYY-MM-DD","assignees":["Name or email"],"notes":"Updated notes text"}</action>
 <action>{"type":"DUPLICATE","taskId":"id","title":"Optional new title","bucketId":"optional-target-bucket-id"}</action>
 When duplicating into a specific bucket, put the bucketId directly in the DUPLICATE action — do NOT use a separate EDIT action with "new-task-id". Example: <action>{"type":"DUPLICATE","taskId":"abc123","bucketId":"bucket456"}</action>
@@ -745,12 +747,10 @@ If the user gives only a first name, ask them to confirm the full email before a
 
 CONFIRMATION RULES:
 1. ONLY ask for confirmation before HIGH-RISK irreversible actions:
-   - DELETE any task (permanent, cannot be undone)
-   - Bulk DELETE of any number of tasks
-   - Bulk operations affecting 5+ tasks at once
-   For ALL other actions (create, edit, update notes, complete, assign, duplicate, create bucket), execute IMMEDIATELY without asking. Do not ask "Shall I proceed?" for routine edits.
+   - EMPTY_BIN (permanent deletion)
+   For ALL other actions including bulk creates, edits, completes, assigns, duplicates — execute IMMEDIATELY without asking, no matter how many tasks. Never say "One moment", "Starting now", or "Let me do that" without including the <action> tags in the same message. Include ALL <action> tags in a single response.
 2. CRITICAL: You MUST include the <action> tag to actually perform ANY operation. Saying "One moment", "Let me do that", "Done!" or "I'll move it now" without an <action> tag does NOTHING. Never describe an action as happening or completed without including the <action> tag in the same message. If you cannot perform something, say so clearly instead of pretending.
-3. For DELETE always warn: "This will permanently delete '[task name]'. Are you sure?"
+3. For EMPTY_BIN always warn: "This will permanently delete all tasks in the Recycle Bin. Are you sure?" For SOFT_DELETE just do it — it's reversible. Never use the old DELETE action.
 4. After executing, briefly confirm what was done. Example: "Done! Updated notes on task X."
 5. If the user confirms (yes/ok/sure/go ahead), execute immediately.
 Be concise and professional.`;
@@ -865,11 +865,39 @@ async function sendMsg() {
     });
 
     let needsRefresh = false;
-    for (const a of actions) {
+    const createActions = actions.filter(function(a) { try { return JSON.parse(a[1]).type === 'CREATE'; } catch(e) { return false; } });
+    const otherActions = actions.filter(function(a) { try { return JSON.parse(a[1]).type !== 'CREATE'; } catch(e) { return false; } });
+
+    // Show progress indicator for bulk creates
+    let progressMsg = null;
+    if (createActions.length > 1) {
+      typing.remove();
+      progressMsg = addMsg('bot', '⏳ Creating task 1 of ' + createActions.length + '…');
+      let count = 0;
+      for (const a of createActions) {
+        try {
+          await doAction(JSON.parse(a[1]));
+          count++;
+          needsRefresh = true;
+          if (progressMsg) {
+            const bubble = progressMsg.querySelector('.bubble');
+            if (bubble) bubble.innerHTML = count < createActions.length
+              ? '⏳ Creating task ' + (count + 1) + ' of ' + createActions.length + '…'
+              : '✅ Created all ' + count + ' tasks!';
+          }
+        } catch(e) { console.warn(e); }
+      }
+    } else {
+      for (const a of createActions) {
+        try { await doAction(JSON.parse(a[1])); needsRefresh = true; } catch(e) { console.warn(e); }
+      }
+    }
+
+    for (const a of otherActions) {
       try {
         const action = JSON.parse(a[1]);
         if (action.type === 'SWITCH_PLAN') { typing.remove(); switchPlan(); busy=false; document.getElementById('send-btn').disabled=false; return; }
-        if (action.type === 'FETCH_NOTES') { await doAction(action); continue; } // handled inside doAction
+        if (action.type === 'FETCH_NOTES') { await doAction(action); continue; }
         await doAction(action);
         needsRefresh = true;
       } catch(e) { console.warn(e); }
@@ -880,7 +908,7 @@ async function sendMsg() {
       typing.remove();
       const displayText = clean || (actions.length > 0 ? 'Done!' : '');
       if (displayText) {
-        const isConfirmQ = /are you sure|permanently delete|cannot be undone|irreversible|bulk delete/i.test(displayText) && displayText.includes('?');
+        const isConfirmQ = /are you sure|permanently delete|cannot be undone|irreversible|bulk delete|empty.*bin|recycle bin/i.test(displayText) && displayText.includes('?');
         addMsg('bot', displayText, isConfirmQ);
       }
     }
@@ -926,12 +954,41 @@ async function doAction(a) {
   } else if (a.type==='COMPLETE'||a.type==='INCOMPLETE') {
     const e=await getEtag(a.taskId);
     await callGraph(`/planner/tasks/${a.taskId}`,'PATCH',{percentComplete:a.type==='COMPLETE'?100:0},e);
-  } else if (a.type==='DELETE') {
-    // Safety check: only delete tasks, never buckets
-    const taskExists = (currentPlan._tasks||[]).find(function(t) { return t.id === a.taskId; });
-    if (!taskExists) { console.warn('DELETE aborted: ID not found in tasks', a.taskId); return; }
-    const e=await getEtag(a.taskId);
-    await callGraph('/planner/tasks/' + a.taskId,'DELETE',null,e);
+  } else if (a.type==='SOFT_DELETE') {
+    // Soft delete: move to Recycle Bin bucket, mark complete, prefix title
+    const task = (currentPlan._tasks||[]).find(function(t) { return t.id === a.taskId; });
+    if (!task) { console.warn('SOFT_DELETE: task not found'); return; }
+    // Find or create Recycle Bin bucket
+    let binBucket = (currentPlan._buckets||[]).find(function(b) { return b.name === '🗑️ Recycle Bin'; });
+    if (!binBucket) {
+      binBucket = await callGraph('/planner/buckets', 'POST', { planId: currentPlan.id, name: '🗑️ Recycle Bin', orderHint: ' !' });
+      if (binBucket && binBucket.id) { currentPlan._buckets = currentPlan._buckets || []; currentPlan._buckets.push(binBucket); }
+    }
+    const etag = await getEtag(a.taskId);
+    const updates = { percentComplete: 100, bucketId: binBucket.id };
+    if (!task.title.startsWith('[deleted] ')) updates.title = '[deleted] ' + task.title;
+    await callGraph('/planner/tasks/' + a.taskId, 'PATCH', updates, etag);
+  } else if (a.type==='RESTORE') {
+    const task = (currentPlan._tasks||[]).find(function(t) { return t.id === a.taskId; });
+    if (!task) { console.warn('RESTORE: task not found'); return; }
+    // Find first non-bin bucket
+    const targetBucket = (currentPlan._buckets||[]).find(function(b) { return b.name !== '🗑️ Recycle Bin'; });
+    const etag = await getEtag(a.taskId);
+    const updates = { percentComplete: 0 };
+    if (targetBucket) updates.bucketId = targetBucket.id;
+    if (task.title.startsWith('[deleted] ')) updates.title = task.title.replace('[deleted] ', '');
+    await callGraph('/planner/tasks/' + a.taskId, 'PATCH', updates, etag);
+  } else if (a.type==='EMPTY_BIN') {
+    const binTasks = (currentPlan._tasks||[]).filter(function(t) {
+      const bucket = (currentPlan._buckets||[]).find(function(b) { return b.id === t.bucketId; });
+      return bucket && bucket.name === '🗑️ Recycle Bin';
+    });
+    for (const t of binTasks) {
+      try {
+        const e = await getEtag(t.id);
+        await callGraph('/planner/tasks/' + t.id, 'DELETE', null, e);
+      } catch(e) { console.warn('Could not delete bin task:', e); }
+    }
   } else if (a.type==='DUPLICATE') {
     // Read original task + details
     const orig = (currentPlan._tasks||[]).find(function(t) { return t.id === a.taskId; });
