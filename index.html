@@ -685,14 +685,23 @@ SWITCH PLAN: If the user wants to switch plans, respond with:
 <action>{"type":"SWITCH_PLAN"}</action>
 
 TASK ACTIONS (only when a plan is selected):
-<action>{"type":"CREATE","title":"Task title","bucketId":"optional-id","priority":5,"dueDate":"YYYY-MM-DD"}</action>
+<action>{"type":"CREATE","title":"Task title","bucketId":"optional-id","priority":5,"dueDate":"YYYY-MM-DD","notes":"Optional notes text"}</action>
 <action>{"type":"COMPLETE","taskId":"id"}</action>
 <action>{"type":"INCOMPLETE","taskId":"id"}</action>
 <action>{"type":"DELETE","taskId":"id"}</action>
 <action>{"type":"EDIT","taskId":"id","title":"New title","priority":0,"dueDate":"YYYY-MM-DD"}</action>
 
 Priority: 0=urgent, 2=important, 5=medium, 9=low. Default bucket: ${buckets[0]?.id||''}.
-Be concise. Confirm every action. Highlight overdue tasks.`;
+
+CONFIRMATION RULES — always follow these:
+1. Before executing ANY action (create, edit, complete, delete), first describe what you are about to do and ask the user to confirm. Example: "I'll create a task called 'X' with priority urgent due Friday. Shall I go ahead?"
+2. Only include <action> tags AFTER the user has confirmed (said yes, ok, go ahead, sure, etc.)
+3. For DELETE, always warn clearly: "This will permanently delete '[task name]'. Are you sure?"
+4. For bulk actions (multiple tasks), list all of them and ask once.
+5. After executing, confirm what was done. Example: "Done! I've created the task 'X'."
+6. If the user's message is clearly a confirmation (yes/ok/sure/go ahead/do it), execute the pending action immediately.
+
+Be concise and professional.`;
 }
 
 async function sendMsg() {
@@ -765,7 +774,15 @@ async function doAction(a) {
     const b={planId:currentPlan.id,title:a.title,priority:a.priority??5};
     if (a.bucketId) b.bucketId=a.bucketId;
     if (a.dueDate) b.dueDateTime=new Date(a.dueDate).toISOString();
-    await callGraph('/planner/tasks','POST',b);
+    const created = await callGraph('/planner/tasks','POST',b);
+    if (a.notes && created && created.id) {
+      // Wait for task to settle before updating details
+      await new Promise(function(r) { setTimeout(r, 800); });
+      try {
+        const detailR = await fetch(GRAPH + '/planner/tasks/' + created.id + '/details', { headers: { 'Authorization': 'Bearer ' + accessToken } }); const detailEtag = detailR.headers.get('ETag') || '*';
+        await callGraph('/planner/tasks/' + created.id + '/details', 'PATCH', { description: a.notes }, detailEtag);
+      } catch(e) { console.warn('Notes update failed:', e); }
+    }
   } else if (a.type==='COMPLETE'||a.type==='INCOMPLETE') {
     const e=await getEtag(a.taskId);
     await callGraph(`/planner/tasks/${a.taskId}`,'PATCH',{percentComplete:a.type==='COMPLETE'?100:0},e);
