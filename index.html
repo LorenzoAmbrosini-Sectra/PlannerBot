@@ -883,15 +883,19 @@ async function sendMsg() {
     const res = await fetch(AZ_URL, {
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'api-key': AZ_KEY },
-      body: JSON.stringify({ messages:[{role:'system',content:buildSystem()},...history], max_tokens:4000, temperature:0.3 })
+      body: JSON.stringify({ messages:[{role:'system',content:buildSystem()},...history], max_tokens:8000, temperature:0.3 })
     });
     if (!res.ok) { const e=await res.json(); throw new Error(e.error?.message||'Azure OpenAI error'); }
     const data = await res.json();
     const reply = data.choices[0].message.content;
     history.push({role:'assistant',content:reply});
 
+    // Check for truncated response (incomplete action tag)
+    const isTruncated = reply.includes('<action>') && !reply.endsWith('</action>') && 
+                        (reply.match(/<action>/g)||[]).length > (reply.match(/<\/action>/g)||[]).length;
     const actions = [...reply.matchAll(/<action>([\s\S]*?)<\/action>/g)];
-    const clean = reply.replace(/<action>[\s\S]*?<\/action>/g,'').trim();
+    let clean = reply.replace(/<action>[\s\S]*?<\/action>/g,'').replace(/<action>[\s\S]*/,'').trim();
+    if (isTruncated) clean = (clean || '') + (clean ? '\n\n' : '') + '⚠️ Response was cut off — ' + actions.length + ' tasks were created. Try asking me to continue creating the remaining tasks.';
 
     // Check if this is a FETCH_NOTES action — suppress initial reply, show result after fetch
     const hasFetchNotes = actions.some(function(a) {
