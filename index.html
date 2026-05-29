@@ -604,8 +604,9 @@ async function fetchSharePointDoc(url) {
   if (!shareItem || !shareItem.id) throw new Error('Could not resolve the shared link.');
   const driveId = shareItem.parentReference && shareItem.parentReference.driveId;
   if (!driveId) throw new Error('Could not determine drive.');
+  const fileName = (shareItem.name || '').toLowerCase();
 
-  // Method 1: format=text
+  // Method 1: format=text (works for some file types)
   const textResp = await fetch(GRAPH + '/drives/' + driveId + '/items/' + shareItem.id + '/content?format=text', {
     headers: { 'Authorization': 'Bearer ' + accessToken }
   });
@@ -616,7 +617,7 @@ async function fetchSharePointDoc(url) {
     }
   }
 
-  // Method 2: download docx and unzip
+  // Method 2: download and unzip (works for .docx and .pptx — both are ZIP/XML)
   const dlResp = await fetch(GRAPH + '/drives/' + driveId + '/items/' + shareItem.id + '/content', {
     headers: { 'Authorization': 'Bearer ' + accessToken }
   });
@@ -626,7 +627,6 @@ async function fetchSharePointDoc(url) {
   const bytes = new Uint8Array(arrayBuffer);
   const decoder = new TextDecoder('utf-8', { fatal: false });
 
-  // Find word/document.xml in the ZIP
   async function decompress(data) {
     const ds = new DecompressionStream('deflate-raw');
     const writer = ds.writable.getWriter();
@@ -646,6 +646,15 @@ async function fetchSharePointDoc(url) {
     return decoder.decode(merged);
   }
 
+  // Determine which XML files to extract based on file type
+  const isPptx = fileName.endsWith('.pptx');
+  const isDocx = fileName.endsWith('.docx');
+
+  // For pptx: extract all ppt/slides/slide*.xml files
+  // For docx: extract word/document.xml
+  const slideXmls = {};
+  let docXml = '';
+
   let i = 0;
   while (i < bytes.length - 30) {
     if (bytes[i] === 0x50 && bytes[i+1] === 0x4B && bytes[i+2] === 0x03 && bytes[i+3] === 0x04) {
@@ -656,36 +665,60 @@ async function fetchSharePointDoc(url) {
       const filename = decoder.decode(bytes.slice(i+30, i+30+filenameLen));
       const dataStart = i + 30 + filenameLen + extraLen;
 
-      if (filename === 'word/document.xml') {
+      const isTarget = (isDocx && filename === 'word/document.xml') ||
+                       (isPptx && filename.match(/^ppt\/slides\/slide[0-9]+\.xml$/));
+
+      if (isTarget) {
         const compressedData = bytes.slice(dataStart, dataStart + compressedSize);
         let xml = '';
-        if (compression === 0) {
-          xml = decoder.decode(compressedData);
-        } else {
-          xml = await decompress(compressedData);
-        }
-        const matches = xml.match(/<w:t[^>]*>([^<]*)<\/w:t>/g);
-        if (matches && matches.length > 0) {
-          const text = matches
-            .map(function(m) { return m.replace(/<[^>]+>/g, ''); })
-            .filter(function(t) { return t.trim().length > 0; })
-            .join(' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-          return 'File: ' + shareItem.name + '\n\n' + text.slice(0, 15000);
-        }
+        if (compression === 0) { xml = decoder.decode(compressedData); }
+        else { xml = await decompress(compressedData); }
+
+        if (isDocx) { docXml = xml; }
+        if (isPptx) { slideXmls[filename] = xml; }
       }
       i = dataStart + Math.max(compressedSize, 1);
-    } else {
-      i++;
+    } else { i++; }
+  }
+
+  // Extract text from docx
+  if (isDocx && docXml) {
+    const matches = docXml.match(/<w:t[^>]*>([^<]*)<\/w:t>/g);
+    if (matches && matches.length > 0) {
+      const text = matches.map(function(m) { return m.replace(/<[^>]+>/g, ''); })
+        .filter(function(t) { return t.trim().length > 0; })
+        .join(' ').replace(/\s+/g, ' ').trim();
+      return 'File: ' + shareItem.name + '\n\n' + text.slice(0, 15000);
     }
   }
 
-  throw new Error('Could not extract text. Please paste the document content directly.');
+  // Extract text from pptx slides in order
+  if (isPptx && Object.keys(slideXmls).length > 0) {
+    const slideKeys = Object.keys(slideXmls).sort(function(a, b) {
+      const na = parseInt(a.match(/slide([0-9]+)/)[1]);
+      const nb = parseInt(b.match(/slide([0-9]+)/)[1]);
+      return na - nb;
+    });
+    const allText = slideKeys.map(function(key, idx) {
+      const xml = slideXmls[key];
+      const matches = xml.match(/<a:t[^>]*>([^<]*)<\/a:t>/g);
+      if (!matches) return '';
+      const slideText = matches.map(function(m) { return m.replace(/<[^>]+>/g, ''); })
+        .filter(function(t) { return t.trim().length > 0; })
+        .join(' ').trim();
+      return slideText ? 'Slide ' + (idx+1) + ': ' + slideText : '';
+    }).filter(Boolean).join('\n');
+    if (allText.length > 50) {
+      return 'File: ' + shareItem.name + '\n\n' + allText.slice(0, 15000);
+    }
+  }
+
+  throw new Error('Could not extract text from "' + shareItem.name + '". Please paste the content directly.');
 }
 
 function isSharePointUrl(text) {
-  return /https?:\/\/[a-z0-9-]+\.sharepoint\.com\S+/i.test(text);
+  return /https?:\/\/[a-z0-9-]+\.sharepoint\.com\S+/i.test(text) ||
+         /https?:\/\/[a-z0-9-]+-my\.sharepoint\.com\S+/i.test(text);
 }
 function extractUrl(text) {
   const m = text.match(/https?:\/\/\S+/);
