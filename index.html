@@ -883,7 +883,7 @@ async function sendMsg() {
     const res = await fetch(AZ_URL, {
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'api-key': AZ_KEY },
-      body: JSON.stringify({ messages:[{role:'system',content:buildSystem()},...history], max_tokens:1500, temperature:0.3 })
+      body: JSON.stringify({ messages:[{role:'system',content:buildSystem()},...history], max_tokens:4000, temperature:0.3 })
     });
     if (!res.ok) { const e=await res.json(); throw new Error(e.error?.message||'Azure OpenAI error'); }
     const data = await res.json();
